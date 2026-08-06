@@ -23,7 +23,7 @@ Full setup, statuses, and troubleshooting: **[CONFIG.md](CONFIG.md)**.
 
 - PG3 / PG3x with Python 3
 - Konnected GDO reachable on the LAN (HTTP); multicast DNS for auto-discover
-- Dependencies: `udi_interface`, `requests`, `zeroconf`, `markdown2` (see `requirements.txt`; on FreeBSD prefer `pkg install py311-zeroconf`)
+- Dependencies: `udi_interface`, `requests`, `zeroconf`, `markdown2` (see `requirements.txt`). On FreeBSD install **`pkg install py311-zeroconf`** first — `install.sh` will use it and not pip-upgrade zeroconf (avoids a source build).
 
 ## Development
 

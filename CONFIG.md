@@ -74,7 +74,7 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 
 | Symptom | What to check |
 |---------|----------------|
-| Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD) |
+| Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD). Avoid `pip install --upgrade zeroconf` on FreeBSD — it builds from source; `install.sh` prefers the OS package. |
 | Notice about `hosts` | Click Discover, or set the parameter and save |
 | Device offline after discover | Ping the IP from the Polyglot host; ensure HTTP port 80 is open; reboot the Konnected |
 | Door commands fail, **Synced** = Not Synced | Run **Re-sync** on the garage node; complete initial blaQ pairing if new |

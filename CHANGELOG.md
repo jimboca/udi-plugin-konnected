@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-05
+
+### Fixed
+
+- `install.sh` / `requirements.txt`: pin `zeroconf` to `>=0.132.2,<0.133` and skip pip for zeroconf on FreeBSD when the OS package is already importable (avoids upgrading to 0.150.x and a long source build).
+
 ## [0.1.0] - 2026-08-05
 
 ### Added

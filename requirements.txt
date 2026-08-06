@@ -1,4 +1,6 @@
 udi_interface >= 3.3.14
 requests >= 2.28.0
-zeroconf >= 0.131.0
+# Cap below 0.133 to match FreeBSD py311-zeroconf (0.132.x). Newer PyPI
+# releases often lack FreeBSD wheels and force a long source build.
+zeroconf >= 0.132.2, < 0.133
 markdown2
