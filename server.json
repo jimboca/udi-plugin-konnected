@@ -1,6 +1,6 @@
 {
     "name": "Konnected",
-    "docs": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected",
+    "docs": "https://github.com/jimboca/udi-plugin-konnected",
     "type": "python3",
     "executable": "main.py",
     "install": "install.sh",
@@ -21,8 +21,8 @@
             "author": "Universal Devices",
             "version": "0.1.0",
             "date": "August 2026",
-            "source": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected",
-            "license": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected/LICENSE"
+            "source": "https://github.com/jimboca/udi-plugin-konnected",
+            "license": "https://github.com/jimboca/udi-plugin-konnected/LICENSE"
         }
     ]
 }
