@@ -1,0 +1,4 @@
+udi_interface >= 3.3.14
+requests >= 2.28.0
+zeroconf >= 0.131.0
+markdown2

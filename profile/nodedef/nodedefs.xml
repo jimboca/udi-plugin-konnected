@@ -1,0 +1,70 @@
+<nodeDefs>
+  <nodeDef id="controller" nls="ctl">
+    <editors />
+    <sts>
+      <st id="ST" editor="bool" />
+      <st id="GV0" editor="count" />
+      <st id="GV1" editor="count" />
+    </sts>
+    <cmds>
+      <sends>
+        <cmd id="DON" />
+        <cmd id="DOF" />
+      </sends>
+      <accepts>
+        <cmd id="QUERY" />
+        <cmd id="DISCOVER" />
+      </accepts>
+    </cmds>
+  </nodeDef>
+
+  <nodeDef id="gdo" nls="gdo">
+    <editors />
+    <sts>
+      <st id="ST" editor="doorst" />
+      <st id="GV0" editor="bool" />
+      <st id="GV1" editor="obsc" />
+      <st id="GV2" editor="lockst" />
+      <st id="GV3" editor="motion" />
+      <st id="GV4" editor="synced" />
+      <st id="GV5" editor="devtype" />
+    </sts>
+    <cmds>
+      <sends>
+        <cmd id="DON" />
+        <cmd id="DOF" />
+        <cmd id="DON3" />
+      </sends>
+      <accepts>
+        <cmd id="DON" />
+        <cmd id="DOF" />
+        <cmd id="STOP" />
+        <cmd id="LOCK" />
+        <cmd id="UNLOCK" />
+        <cmd id="RESYNC" />
+        <cmd id="QUERY" />
+      </accepts>
+    </cmds>
+  </nodeDef>
+
+  <nodeDef id="gdolt" nls="lgt">
+    <editors />
+    <sts>
+      <st id="ST" editor="lightst" />
+      <st id="GV0" editor="bool" />
+    </sts>
+    <cmds>
+      <sends>
+        <cmd id="DON" />
+        <cmd id="DOF" />
+      </sends>
+      <accepts>
+        <cmd id="DON" />
+        <cmd id="DOF" />
+        <cmd id="DFON" />
+        <cmd id="DFOF" />
+        <cmd id="QUERY" />
+      </accepts>
+    </cmds>
+  </nodeDef>
+</nodeDefs>

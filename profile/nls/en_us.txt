@@ -1,0 +1,59 @@
+# controller
+ND-controller-NAME = Konnected Controller
+ND-controller-ICON = GenericCtl
+ST-ctl-ST-NAME = Node Server Online
+ST-ctl-GV0-NAME = Devices Configured
+ST-ctl-GV1-NAME = Devices Online
+CMD-ctl-QUERY-NAME = Query
+CMD-ctl-DISCOVER-NAME = Discover
+
+# garage door
+ND-gdo-NAME = Garage Door Opener
+ND-gdo-ICON = DoorLock
+ST-gdo-ST-NAME = Door State
+IX_DOOR-0 = Closed
+IX_DOOR-1 = Open
+IX_DOOR-2 = Stopped
+IX_DOOR-3 = Closing
+IX_DOOR-4 = Opening
+IX_DOOR-9 = Unknown
+ST-gdo-GV0-NAME = Online
+ST-gdo-GV1-NAME = Obstruction
+IX_OBSC-0 = Clear
+IX_OBSC-1 = Obstructed
+IX_OBSC-101 = Unknown
+ST-gdo-GV2-NAME = Lockout
+IX_LOCK-0 = Unlocked
+IX_LOCK-1 = Locked
+IX_LOCK-101 = Unknown
+ST-gdo-GV3-NAME = Motion
+IX_MOTION-0 = Clear
+IX_MOTION-1 = Detected
+IX_MOTION-101 = Unknown
+ST-gdo-GV4-NAME = Synced
+IX_SYNC-0 = Not Synced
+IX_SYNC-1 = Synced
+IX_SYNC-101 = Unknown
+ST-gdo-GV5-NAME = Device Type
+IX_DEV-0 = Unknown
+IX_DEV-1 = blaQ
+IX_DEV-2 = White
+CMD-gdo-DON-NAME = Open
+CMD-gdo-DOF-NAME = Close
+CMD-gdo-DON3-NAME = Motion
+CMD-gdo-STOP-NAME = Stop
+CMD-gdo-LOCK-NAME = Lock Remotes
+CMD-gdo-UNLOCK-NAME = Unlock Remotes
+CMD-gdo-RESYNC-NAME = Re-sync
+CMD-gdo-QUERY-NAME = Query
+
+# light
+ND-gdolt-NAME = Garage Light
+ND-gdolt-ICON = Lamp
+ST-lgt-ST-NAME = Light State
+ST-lgt-GV0-NAME = Online
+CMD-lgt-DON-NAME = On
+CMD-lgt-DOF-NAME = Off
+CMD-lgt-DFON-NAME = Fast On
+CMD-lgt-DFOF-NAME = Fast Off
+CMD-lgt-QUERY-NAME = Query

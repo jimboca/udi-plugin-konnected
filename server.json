@@ -1,0 +1,28 @@
+{
+    "name": "Konnected",
+    "docs": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected",
+    "type": "python3",
+    "executable": "main.py",
+    "install": "install.sh",
+    "description": "Control Konnected GDO blaQ (and later White) garage door openers over the local network via REST/SSE",
+    "notice": "Requires local network access to each Konnected device. Set the hosts custom parameter to device IP address(es).",
+    "logLevel": "INFO",
+    "shortPoll": "30",
+    "longPoll": "300",
+    "discover": true,
+    "customParams": {
+        "hosts": "",
+        "change_node_names": "false"
+    },
+    "profile_version": "0.1.0",
+    "credits": [
+        {
+            "title": "Konnected Node Server",
+            "author": "Universal Devices",
+            "version": "0.1.0",
+            "date": "August 2026",
+            "source": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected",
+            "license": "https://github.com/UniversalDevicesInc-PG3/udi-plugin-konnected/LICENSE"
+        }
+    ]
+}

@@ -1,0 +1,29 @@
+<editors>
+  <editor id="bool">
+    <range uom="2" subset="0,1" />
+  </editor>
+  <editor id="count">
+    <range uom="56" min="0" max="64" step="1" prec="0" />
+  </editor>
+  <editor id="doorst">
+    <range uom="25" subset="0-4,9" nls="IX_DOOR" />
+  </editor>
+  <editor id="obsc">
+    <range uom="25" subset="0-1,101" nls="IX_OBSC" />
+  </editor>
+  <editor id="lockst">
+    <range uom="25" subset="0-1,101" nls="IX_LOCK" />
+  </editor>
+  <editor id="motion">
+    <range uom="25" subset="0-1,101" nls="IX_MOTION" />
+  </editor>
+  <editor id="synced">
+    <range uom="25" subset="0-1,101" nls="IX_SYNC" />
+  </editor>
+  <editor id="devtype">
+    <range uom="25" subset="0-2" nls="IX_DEV" />
+  </editor>
+  <editor id="lightst">
+    <range uom="78" subset="0,100,101" />
+  </editor>
+</editors>

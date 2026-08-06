@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.log
+*.zip
+*.cert
+*.key
+*.pid
+*.lock
+.installed
+.pytest_cache/
+logs/
+.local/
+.cache/
+svc.pid
+NS*.lock
+smoke_last.txt
