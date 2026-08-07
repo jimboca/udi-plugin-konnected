@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-06
+
+### Fixed
+
+- Clear per-device Notices when SSE reconnects (transient `Connection reset by peer` no longer sticks after the link is healthy again). Offline notices use a short “reconnecting…” message instead of the raw requests exception.
+
 ## [0.1.1] - 2026-08-05
 
 ### Fixed

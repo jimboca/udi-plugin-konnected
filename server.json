@@ -19,7 +19,7 @@
         {
             "title": "Konnected Node Server",
             "author": "Universal Devices",
-            "version": "0.1.1",
+            "version": "0.1.2",
             "date": "August 2026",
             "source": "https://github.com/jimboca/udi-plugin-konnected",
             "license": "https://github.com/jimboca/udi-plugin-konnected/LICENSE"

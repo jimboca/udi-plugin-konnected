@@ -313,17 +313,45 @@ class Controller(Node):
             )
         self._notice_clear_prefix(NOTICE_UNKNOWN_PREFIX, keep=keep)
 
+    @staticmethod
+    def _friendly_offline_message(raw: Optional[str]) -> str:
+        """Map noisy HTTP/SSE exceptions to a short reconnecting notice."""
+        text = (raw or '').strip()
+        low = text.lower()
+        if not text:
+            return 'Offline — reconnecting…'
+        if any(
+            s in low
+            for s in (
+                'connection reset',
+                'connection broken',
+                'connection aborted',
+                'broken pipe',
+                'timed out',
+                'timeout',
+                'remotely closed',
+                'errno 54',
+                'errno 32',
+            )
+        ):
+            return 'Connection lost — reconnecting…'
+        # Collapse requests' ugly "(msg, ExcType(...))" tuples
+        if text.startswith('(') and 'Connection' in text:
+            return 'Connection lost — reconnecting…'
+        return text
+
     def _refresh_device_notice(self, host: str, device: Optional[KonnectedDevice]) -> None:
         """Set or clear the per-host notice from current client state."""
         if device is None:
             self.notice_device(host, 'Not connected')
             return
         if not device.online:
-            self.notice_device(host, device.last_error or 'Offline / reconnecting')
+            self.notice_device(host, self._friendly_offline_message(device.last_error))
             return
-        # SSE goes online before the entity burst finishes — skip "no cover"
-        # until discovery is ready so Notices do not flash a false error.
+        # SSE is back — drop any prior disconnect notice immediately.
+        # Skip "no cover" until discovery finishes so we do not flash a false error.
         if not device.discovery_ready:
+            self.notice_device(host, '')
             return
         if device.semantic_entity('door') is None:
             self.notice_device(
@@ -427,11 +455,11 @@ class Controller(Node):
         light = self.light_nodes.get(host)
         if light:
             light.on_device_event(key, event)
-        if key == '_online':
-            self._update_counts()
-            # Only refresh notices once discovery is ready (see _refresh_device_notice).
+        if key in ('_online', '_ready'):
+            if key == '_online':
+                self._update_counts()
             device = self.devices.get(host)
-            if device is not None and device.discovery_ready:
+            if device is not None:
                 self._refresh_device_notice(host, device)
 
     # ── discover / nodes ───────────────────────────────────────────────────

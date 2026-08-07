@@ -255,6 +255,7 @@ class KonnectedDevice:
         ) as resp:
             resp.raise_for_status()
             self._online = True
+            self._last_error = None  # clear transient disconnect errors
             if self._state_callback:
                 try:
                     self._state_callback('_online', {'online': True})
@@ -342,6 +343,11 @@ class KonnectedDevice:
             ids = list(self._entity_paths.keys())
             self._device_type = classify_device(ids)
             self._semantic = semantic_entity_map(ids)
+        if self._state_callback:
+            try:
+                self._state_callback('_ready', {})
+            except Exception:
+                LOGGER.exception('ready callback failed')
         LOGGER.info(
             'Discovered %d entities on %s (%s): %s',
             len(ids),
