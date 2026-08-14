@@ -1,6 +1,6 @@
 """Node classes for udi-plugin-konnected."""
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 from .Controller import Controller
 from .GarageDoor import GarageDoor

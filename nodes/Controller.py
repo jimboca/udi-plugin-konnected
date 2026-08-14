@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import threading
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -19,6 +20,7 @@ from const import (
     NOTICE_DISCOVER,
     NOTICE_HOSTS,
     NOTICE_MDNS,
+    NOTICE_MQTT,
     NOTICE_UNKNOWN_PREFIX,
     NS_DEVICE_TYPE,
     NS_FRIENDLY_NAME,
@@ -30,8 +32,19 @@ from const import (
     UOM_RAW,
 )
 from konnected_client import DeviceType, KonnectedDevice, browse_konnected_devices
+from konnected_client.mqtt_health import (
+    NOTICE_MQTT_CERT,
+    NOTICE_MQTT_FLAPPING,
+    check_mqtt_client_cert,
+)
 from nodes.GarageDoor import GarageDoor
 from nodes.Light import Light
+
+# MQTT watchdog: publish a PG3 notice on brief reconnects; log while down.
+_MQTT_WATCH_INTERVAL_SEC = 2.0
+_MQTT_FLAP_NOTICE_AFTER = 2  # disconnects before flapping notice
+_MQTT_STABLE_CLEAR_SEC = 45.0  # clear mqtt notice after this much healthy time
+_MQTT_DOWN_LOG_EVERY_SEC = 30.0
 
 
 def _normalize_host(raw: str) -> str:
@@ -113,11 +126,19 @@ class Controller(Node):
         # Serialize addNode: PG3 rejects child nodes until the parent ACK lands.
         self.n_queue: List[str] = []
         self.add_node_timeout = 30.0
+        self._discover_lock = threading.Lock()
+        self._discover_thread: Optional[threading.Thread] = None
+        self._stopping = False
+        self._mqtt_watch_thread: Optional[threading.Thread] = None
+        self._mqtt_notice_active = False
+        self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
 
         poly.subscribe(poly.START, self.handler_start, address)
         poly.subscribe(poly.STOP, self.handler_stop)
         poly.subscribe(poly.POLL, self.handler_poll)
-        poly.subscribe(poly.DISCOVER, self.discover)
+        # DISCOVER must not run on the Command thread — wait_for_node_done would
+        # deadlock that thread (it is also the MQTT input processor).
+        poly.subscribe(poly.DISCOVER, self.discover_async)
         poly.subscribe(poly.CUSTOMPARAMS, self.handler_params)
         poly.subscribe(poly.CUSTOMDATA, self.handler_data)
         poly.subscribe(poly.CUSTOMNS, self.handler_nsdata)
@@ -128,6 +149,7 @@ class Controller(Node):
         # Do not use conn_status='ST' — PG3 reports that as UOM 25 (raw 0/1/2).
         # Node Server Online is a boolean (UOM 2) True/False driver we own.
         poly.addNode(self)
+        self._start_mqtt_watchdog()
 
     # ── handlers ───────────────────────────────────────────────────────────
 
@@ -155,6 +177,7 @@ class Controller(Node):
 
     def handler_stop(self):
         LOGGER.info('Konnected controller stopping')
+        self._stopping = True
         try:
             self.setDriver('ST', ISY_FALSE, uom=UOM_BOOLEAN, force=True, report=True)
         except Exception:
@@ -279,6 +302,124 @@ class Controller(Node):
             )
         else:
             self._notice_clear(NOTICE_HOSTS)
+        # Refresh MQTT cert status; set notice only while MQTT can publish.
+        self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
+        if not self._mqtt_cert_ok and self.poly.isConnected():
+            self._publish_mqtt_notice(NOTICE_MQTT_CERT)
+
+    def _start_mqtt_watchdog(self) -> None:
+        if self._mqtt_watch_thread is not None and self._mqtt_watch_thread.is_alive():
+            return
+        self._mqtt_watch_thread = threading.Thread(
+            target=self._mqtt_watchdog_loop,
+            name='konnected-mqtt-watch',
+            daemon=True,
+        )
+        self._mqtt_watch_thread.start()
+
+    def _publish_mqtt_notice(self, message: str) -> None:
+        """Set the mqtt notice when the PG3 link can accept it."""
+        if not self.poly.isConnected():
+            return
+        try:
+            self._notice_set(NOTICE_MQTT, message)
+            self._mqtt_notice_active = True
+        except Exception:
+            LOGGER.debug('Could not publish MQTT notice', exc_info=True)
+
+    def _clear_mqtt_notice(self) -> None:
+        if not self._mqtt_notice_active:
+            return
+        if not self.poly.isConnected():
+            return
+        try:
+            self._notice_clear(NOTICE_MQTT)
+            self._mqtt_notice_active = False
+        except Exception:
+            LOGGER.debug('Could not clear MQTT notice', exc_info=True)
+
+    def _mqtt_watchdog_loop(self) -> None:
+        """Watch PG3 MQTT; log clearly and surface Notices on brief reconnects.
+
+        Notices require MQTT, so while the link is down we can only log. On each
+        reconnect we publish a notice if the client cert is bad or the link has
+        been flapping — otherwise Discover/device failures look like GDO issues.
+        """
+        was_connected = False
+        disconnect_count = 0
+        down_since: Optional[float] = None
+        up_since: Optional[float] = None
+        last_down_log = 0.0
+
+        while not self._stopping:
+            try:
+                connected = bool(self.poly.isConnected())
+            except Exception:
+                connected = False
+
+            now = time.time()
+            if connected and not was_connected:
+                LOGGER.info(
+                    'PG3 MQTT connected — checking whether to surface MQTT notice'
+                )
+                up_since = now
+                down_since = None
+                self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
+                if not self._mqtt_cert_ok:
+                    LOGGER.error(
+                        'MQTT health FAILED (PG3 link, not a Konnected GDO issue): %s',
+                        self._mqtt_cert_detail,
+                    )
+                    self._publish_mqtt_notice(NOTICE_MQTT_CERT)
+                elif disconnect_count >= _MQTT_FLAP_NOTICE_AFTER:
+                    LOGGER.error(
+                        'PG3 MQTT was flapping (%d disconnects). This is an MQTT '
+                        'issue between the Node Server and Polyglot — not a '
+                        'Konnected garage-door LAN failure.',
+                        disconnect_count,
+                    )
+                    self._publish_mqtt_notice(NOTICE_MQTT_FLAPPING)
+                disconnect_count = 0
+            elif not connected and was_connected:
+                disconnect_count += 1
+                down_since = now
+                up_since = None
+                LOGGER.error(
+                    'PG3 MQTT disconnected (count=%d). Discover/device updates '
+                    'pause until MQTT is stable. This is usually a TLS/cert or '
+                    'broker problem — not the Konnected GDO itself. %s',
+                    disconnect_count,
+                    self._mqtt_cert_detail
+                    if not self._mqtt_cert_ok
+                    else 'Re-check .cert/.key against ud.ca.cert after UDX updates.',
+                )
+            elif not connected:
+                if down_since is None:
+                    down_since = now
+                if now - last_down_log >= _MQTT_DOWN_LOG_EVERY_SEC:
+                    last_down_log = now
+                    LOGGER.error(
+                        'PG3 MQTT still down for %.0fs — cannot reach Polyglot '
+                        '(notices/Discover blocked). Not a Konnected device issue. %s',
+                        now - down_since,
+                        self._mqtt_cert_detail
+                        if not self._mqtt_cert_ok
+                        else '',
+                    )
+            else:
+                # Connected and was connected — clear notice after stable period
+                if (
+                    self._mqtt_notice_active
+                    and self._mqtt_cert_ok
+                    and up_since is not None
+                    and now - up_since >= _MQTT_STABLE_CLEAR_SEC
+                    and self._started
+                ):
+                    LOGGER.info('PG3 MQTT stable — clearing mqtt notice')
+                    self._clear_mqtt_notice()
+
+            was_connected = connected
+            time.sleep(_MQTT_WATCH_INTERVAL_SEC)
 
     def notice_device(self, host: str, message: str):
         """Per-device error notice; empty message clears it."""
@@ -461,10 +602,43 @@ class Controller(Node):
             device = self.devices.get(host)
             if device is not None:
                 self._refresh_device_notice(host, device)
+            # After SSE rediscovery, refresh IoX drivers (node may have been
+            # added with Unknown defaults before the entity burst finished).
+            if key == '_ready':
+                gdo = self.gdo_nodes.get(host)
+                if gdo:
+                    gdo.query()
+                light = self.light_nodes.get(host)
+                if light:
+                    light.query()
 
     # ── discover / nodes ───────────────────────────────────────────────────
 
+    def discover_async(self, *args, **kwargs):
+        """Run Discover on a worker thread (safe from Command-thread deadlock)."""
+        t = self._discover_thread
+        if t is not None and t.is_alive():
+            LOGGER.info('Discover already running — ignoring duplicate request')
+            return
+        self._discover_thread = threading.Thread(
+            target=self.discover,
+            args=args,
+            kwargs=kwargs,
+            name='konnected-discover',
+            daemon=True,
+        )
+        self._discover_thread.start()
+
     def discover(self, *args, **kwargs):
+        if not self._discover_lock.acquire(blocking=False):
+            LOGGER.info('Discover already in progress — skipping')
+            return False
+        try:
+            return self._discover_body(*args, **kwargs)
+        finally:
+            self._discover_lock.release()
+
+    def _discover_body(self, *args, **kwargs):
         LOGGER.info('Discover starting (configured hosts=%s)', self.hosts)
         self._notice_clear(NOTICE_DISCOVER)
         self._notice_clear(NOTICE_MDNS)
@@ -714,10 +888,24 @@ class Controller(Node):
     def _add_gdo_node(self, host: str, name: str, rename: bool = False) -> GarageDoor:
         addr = host_to_address(host)
         node = GarageDoor(self, addr, name, host)
+        # Register before wait so SSE/_ready can update drivers during addNode.
+        self.gdo_nodes[host] = node
         self.poly.addNode(node, rename=rename or self.change_node_names)
         if not self.wait_for_node_done(addr):
-            LOGGER.error('Timed out waiting for GDO node %s — light child may fail', addr)
-        self.gdo_nodes[host] = node
+            if self.poly.getNodeNameFromDb(addr):
+                LOGGER.warning(
+                    'ADDNODEDONE timed out for GDO %s but node exists in PG3 — continuing',
+                    addr,
+                )
+            else:
+                LOGGER.error(
+                    'Timed out waiting for GDO node %s — light child may fail', addr
+                )
+        # Do not rely only on START (can lag); pull REST state now.
+        try:
+            node.query()
+        except Exception:
+            LOGGER.exception('Initial query failed for GDO %s', addr)
         return node
 
     def _recreate_gdo_as_primary(
@@ -726,6 +914,7 @@ class Controller(Node):
         """Delete and re-add GDO as a self-primary so light children can attach."""
         addr = host_to_address(host)
         self.gdo_nodes.pop(host, None)
+        self.light_nodes.pop(host, None)
         try:
             LOGGER.info('Deleting GDO %s to recreate as primary', addr)
             self.poly.delNode(addr)
@@ -747,12 +936,22 @@ class Controller(Node):
         node = Light(self, gdo, addr, name, host)
         self.poly.addNode(node, rename=rename or self.change_node_names)
         if not self.wait_for_node_done(addr):
-            LOGGER.error(
-                'Timed out waiting for light node %s — will retry on next Discover',
-                addr,
-            )
-            return None
+            if self.poly.getNodeNameFromDb(addr):
+                LOGGER.warning(
+                    'ADDNODEDONE timed out for light %s but node exists — continuing',
+                    addr,
+                )
+            else:
+                LOGGER.error(
+                    'Timed out waiting for light node %s — will retry on next Discover',
+                    addr,
+                )
+                return None
         self.light_nodes[host] = node
+        try:
+            node.query()
+        except Exception:
+            LOGGER.exception('Initial query failed for light %s', addr)
         return node
 
     def query(self, command=None):
@@ -763,7 +962,7 @@ class Controller(Node):
         self.reportDrivers()
 
     def cmd_discover(self, command=None):
-        self.discover()
+        self.discover_async()
 
     drivers = [
         {'driver': 'ST', 'value': ISY_FALSE, 'uom': UOM_BOOLEAN, 'name': 'Node Server Online'},

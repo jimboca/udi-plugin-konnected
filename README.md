@@ -19,6 +19,8 @@ Uses each device’s local **REST + SSE** API (ESPHome web server). No MQTT firm
 
 Full setup, statuses, and troubleshooting: **[CONFIG.md](CONFIG.md)**.
 
+If the Node Server never Discovers after an eISY/UDX update, check PG3 **Notices** for an **mqtt** entry and `logs/debug.log` for `MQTT health FAILED` — that is a Polyglot TLS/cert problem, not the garage opener.
+
 ## Requirements
 
 - PG3 / PG3x with Python 3

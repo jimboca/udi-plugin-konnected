@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-14
+
+### Fixed
+
+- Discover no longer runs on the PG3 Command thread. Waiting for `ADDNODEDONE`
+  there deadlocked MQTT processing (~30s per node), left new GDOs at Unknown
+  defaults, and falsely recreated the door as primary when the light wait also
+  timed out. Discover (button / poly.DISCOVER) now runs on a worker thread;
+  new nodes register immediately and REST-query after add.
+
+### Changed
+
+- MQTT / TLS problems are diagnosed at startup and watched at runtime. Logs say
+  clearly when the failure is **PG3 MQTT** (stale client cert after CA/UDX
+  regen), not a Konnected garage-door LAN outage. A PG3 Notice (`mqtt`) is
+  published on reconnect when the client cert fails verify or MQTT is flapping.
+
 ## [0.1.2] - 2026-08-06
 
 ### Fixed

@@ -62,5 +62,6 @@ MOTION_STATE_RESET_TIME = 60  # clear motion if device never sends OFF
 NOTICE_HOSTS = 'hosts'
 NOTICE_DISCOVER = 'discover'
 NOTICE_MDNS = 'mdns'
+NOTICE_MQTT = 'mqtt'
 NOTICE_DEVICE_PREFIX = 'device_'
 NOTICE_UNKNOWN_PREFIX = 'unknown_'
