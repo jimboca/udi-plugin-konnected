@@ -196,6 +196,9 @@ class Controller(Node):
         elif polltype == 'shortPoll':
             for node in self.gdo_nodes.values():
                 node.reset_motion_if_stale()
+                node.check_offline_stale()
+            for node in self.light_nodes.values():
+                node.check_offline_stale()
 
     def handler_params(self, params):
         LOGGER.debug('customparams: %s', params)

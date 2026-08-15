@@ -22,6 +22,7 @@ from const import (
     IX_UNKNOWN,
     MOTION_EVENT_MASK_TIME,
     MOTION_STATE_RESET_TIME,
+    OFFLINE_STALE_SHORTPOLLS,
     UOM_BOOLEAN,
     UOM_INDEX,
 )
@@ -55,6 +56,8 @@ class GarageDoor(Node):
         self._cmd_local = False
         self._start_time = time.time()
         self._last_motion = 0.0
+        self._offline_polls = 0
+        self._stale_unknown = False
         self.poly.subscribe(self.poly.START, self.start, address)
 
     def start(self):
@@ -77,17 +80,16 @@ class GarageDoor(Node):
         if key == '_online':
             online = bool(event.get('online'))
             self.setDriver('GV0', ISY_TRUE if online else ISY_FALSE, uom=UOM_BOOLEAN)
-            if not online:
-                self.setDriver('ST', IX_DOOR_UNKNOWN, uom=UOM_INDEX)
-                self.setDriver('GV1', IX_UNKNOWN, uom=UOM_INDEX)
-                self.setDriver('GV2', IX_UNKNOWN, uom=UOM_INDEX)
-                self.setDriver('GV3', IX_UNKNOWN, uom=UOM_INDEX)
-                self.setDriver('GV4', IX_UNKNOWN, uom=UOM_INDEX)
-            else:
+            if online:
+                self._offline_polls = 0
+                self._stale_unknown = False
                 device = self.controller.get_device(self.host)
                 if device:
                     self._apply_device_meta(device)
                     self.query()
+            else:
+                # Keep last-known Door State / sensors until shortPoll says stale.
+                self._offline_polls = 0
             return
 
         if key == SEM_DOOR:
@@ -152,6 +154,32 @@ class GarageDoor(Node):
             LOGGER.info('Clearing stale motion on %s', self.address)
             self.setDriver('GV3', IX_MOTION_CLEAR, uom=UOM_INDEX)
             self._last_motion = 0.0
+
+    def check_offline_stale(self) -> None:
+        """After N consecutive shortPolls offline, mark drivers Unknown.
+
+        N = OFFLINE_STALE_SHORTPOLLS so the delay tracks the user-set PG3
+        shortPoll interval (default 30s → ~60s before Unknown).
+        """
+        device = self._device()
+        if device and device.online:
+            self._offline_polls = 0
+            self._stale_unknown = False
+            return
+        self._offline_polls += 1
+        if self._offline_polls < OFFLINE_STALE_SHORTPOLLS or self._stale_unknown:
+            return
+        LOGGER.info(
+            'GDO %s offline for %d shortPoll(s) — marking Door State/sensors Unknown',
+            self.address,
+            self._offline_polls,
+        )
+        self.setDriver('ST', IX_DOOR_UNKNOWN, uom=UOM_INDEX)
+        self.setDriver('GV1', IX_UNKNOWN, uom=UOM_INDEX)
+        self.setDriver('GV2', IX_UNKNOWN, uom=UOM_INDEX)
+        self.setDriver('GV3', IX_UNKNOWN, uom=UOM_INDEX)
+        self.setDriver('GV4', IX_UNKNOWN, uom=UOM_INDEX)
+        self._stale_unknown = True
 
     def _device(self) -> Optional['KonnectedDevice']:
         return self.controller.get_device(self.host)

@@ -48,7 +48,7 @@ Unsupported Konnected products (for example alarm panels) are **not** added as I
 | Status | Meaning |
 |--------|---------|
 | **Door State** | Closed / Open / Stopped / Closing / Opening / Unknown |
-| **Online** | Plugin has a live SSE connection to the device |
+| **Online** | Plugin has a live SSE connection to the device. On a brief drop, Door State and sensors keep their last known values. After **2 consecutive shortPolls** while still offline, those values become Unknown (so timing follows the Node Server **shortPoll** setting; default 30s → about 60s). |
 | **Obstruction** | Safety beam clear / obstructed |
 | **Lockout** | Wireless remotes unlocked / locked (blaQ) |
 | **Motion** | Clear / Detected (clears after ~60s if the device does not send Off) |

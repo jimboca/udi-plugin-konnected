@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Transient SSE disconnects no longer force **Door State** / sensors / light to
+  Unknown immediately. Only **Online** goes False; last-known values are kept.
+  After **2 consecutive shortPolls** while still offline, drivers become Unknown
+  (delay tracks the user-set PG3 shortPoll interval; default 30s ≈ 60s).
+
 ## [0.1.3] - 2026-08-14
 
 ### Fixed

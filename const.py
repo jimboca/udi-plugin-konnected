@@ -57,6 +57,9 @@ DEFAULT_RECONNECT_DELAY = 5.0
 DEFAULT_MDNS_SECONDS = 5.0
 MOTION_EVENT_MASK_TIME = 30  # ignore retained-like motion bursts after start
 MOTION_STATE_RESET_TIME = 60  # clear motion if device never sends OFF
+# After this many consecutive shortPolls while SSE is down, mark door/sensor
+# drivers Unknown (timing follows the user-set PG3 shortPoll interval).
+OFFLINE_STALE_SHORTPOLLS = 2
 
 # Notice keys
 NOTICE_HOSTS = 'hosts'

@@ -12,6 +12,7 @@ from const import (
     ISY_ON,
     ISY_ONOFF_UNKNOWN,
     ISY_TRUE,
+    OFFLINE_STALE_SHORTPOLLS,
     UOM_BOOLEAN,
     UOM_ONOFF,
 )
@@ -39,6 +40,8 @@ class Light(Node):
         self.controller = controller
         self.host = host
         self._cmd_local = False
+        self._offline_polls = 0
+        self._stale_unknown = False
         self.poly.subscribe(self.poly.START, self.start, address)
 
     def start(self):
@@ -58,10 +61,14 @@ class Light(Node):
         if key == '_online':
             online = bool(event.get('online'))
             self.setDriver('GV0', ISY_TRUE if online else ISY_FALSE, uom=UOM_BOOLEAN)
-            if not online:
-                self.setDriver('ST', ISY_ONOFF_UNKNOWN, uom=UOM_ONOFF)
-            elif self.controller.get_device(self.host):
-                self.query()
+            if online:
+                self._offline_polls = 0
+                self._stale_unknown = False
+                if self.controller.get_device(self.host):
+                    self.query()
+            else:
+                # Keep last-known Light State until shortPoll says stale.
+                self._offline_polls = 0
             return
 
         if key != SEM_LIGHT:
@@ -84,6 +91,24 @@ class Light(Node):
                 self.reportCmd('DOF')
         else:
             self._cmd_local = False
+
+    def check_offline_stale(self) -> None:
+        """After N consecutive shortPolls offline, mark Light State Unknown."""
+        device = self._device()
+        if device and device.online:
+            self._offline_polls = 0
+            self._stale_unknown = False
+            return
+        self._offline_polls += 1
+        if self._offline_polls < OFFLINE_STALE_SHORTPOLLS or self._stale_unknown:
+            return
+        LOGGER.info(
+            'Light %s offline for %d shortPoll(s) — marking Light State Unknown',
+            self.address,
+            self._offline_polls,
+        )
+        self.setDriver('ST', ISY_ONOFF_UNKNOWN, uom=UOM_ONOFF)
+        self._stale_unknown = True
 
     def _device(self) -> Optional['KonnectedDevice']:
         return self.controller.get_device(self.host)
