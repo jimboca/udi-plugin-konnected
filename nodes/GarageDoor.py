@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import TYPE_CHECKING, Optional
 
@@ -86,14 +87,22 @@ class GarageDoor(Node):
                 device = self.controller.get_device(self.host)
                 if device:
                     self._apply_device_meta(device)
-                    self.query()
+                    # Never REST-query on the SSE thread — blocks event reads.
+                    threading.Thread(
+                        target=self.query,
+                        name=f'konnected-query-{self.address}',
+                        daemon=True,
+                    ).start()
             else:
                 # Keep last-known Door State / sensors until shortPoll says stale.
                 self._offline_polls = 0
             return
 
         if key == SEM_DOOR:
-            old = self.getDriver('ST')
+            try:
+                old = int(self.getDriver('ST'))
+            except (TypeError, ValueError):
+                old = IX_DOOR_UNKNOWN
             new = parse_door_state(event)
             if new is None:
                 new = IX_DOOR_UNKNOWN

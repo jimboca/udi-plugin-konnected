@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Optional
 
 from udi_interface import LOGGER, Node
@@ -65,7 +66,11 @@ class Light(Node):
                 self._offline_polls = 0
                 self._stale_unknown = False
                 if self.controller.get_device(self.host):
-                    self.query()
+                    threading.Thread(
+                        target=self.query,
+                        name=f'konnected-query-{self.address}',
+                        daemon=True,
+                    ).start()
             else:
                 # Keep last-known Light State until shortPoll says stale.
                 self._offline_polls = 0
@@ -74,7 +79,10 @@ class Light(Node):
         if key != SEM_LIGHT:
             return
 
-        old = self.getDriver('ST')
+        try:
+            old = int(self.getDriver('ST'))
+        except (TypeError, ValueError):
+            old = ISY_ONOFF_UNKNOWN
         on = parse_on_off_bool(event)
         if on is True:
             new = ISY_ON

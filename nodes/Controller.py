@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import threading
@@ -10,7 +11,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import markdown2
-from udi_interface import LOGGER, Custom, Node
+from udi_interface import LOGGER, LOG_HANDLER, Custom, Node
 
 from const import (
     DEFAULT_MDNS_SECONDS,
@@ -32,6 +33,7 @@ from const import (
     UOM_RAW,
 )
 from konnected_client import DeviceType, KonnectedDevice, browse_konnected_devices
+from konnected_client import stream_debug
 from konnected_client.mqtt_health import (
     NOTICE_MQTT_CERT,
     NOTICE_MQTT_FLAPPING,
@@ -143,6 +145,7 @@ class Controller(Node):
         poly.subscribe(poly.CUSTOMDATA, self.handler_data)
         poly.subscribe(poly.CUSTOMNS, self.handler_nsdata)
         poly.subscribe(poly.CONFIGDONE, self.handler_config_done)
+        poly.subscribe(poly.LOGLEVEL, self.handler_log_level)
         poly.subscribe(poly.ADDNODEDONE, self.handler_addnode_done)
 
         poly.ready()
@@ -243,6 +246,25 @@ class Controller(Node):
 
     def handler_config_done(self):
         LOGGER.debug('config done')
+        self.poly.addLogLevel('DEBUG_STREAM', 9, 'Debug + Stream')
+
+    def handler_log_level(self, level):
+        """PG3 Logger Level — Debug + Stream dumps SSE/REST from devices."""
+        LOGGER.info('log level: %s', level)
+        name = ''
+        lvl = 30
+        if isinstance(level, dict):
+            name = str(level.get('name') or '').upper()
+            try:
+                lvl = int(level.get('level', 30))
+            except (TypeError, ValueError):
+                lvl = 30
+        # Custom levels use numbers below standard DEBUG (10).
+        if lvl < 10:
+            LOG_HANDLER.set_basic_config(True, logging.DEBUG)
+        else:
+            LOG_HANDLER.set_basic_config(True, logging.WARNING)
+        stream_debug.set_enabled(name == 'DEBUG_STREAM' or lvl == 9)
 
     def handler_addnode_done(self, data):
         LOGGER.debug('addNode done: %s', data)
@@ -607,13 +629,22 @@ class Controller(Node):
                 self._refresh_device_notice(host, device)
             # After SSE rediscovery, refresh IoX drivers (node may have been
             # added with Unknown defaults before the entity burst finished).
+            # Run off the SSE/timer thread so REST does not stall event reads.
             if key == '_ready':
                 gdo = self.gdo_nodes.get(host)
-                if gdo:
-                    gdo.query()
                 light = self.light_nodes.get(host)
-                if light:
-                    light.query()
+                if gdo or light:
+                    def _refresh():
+                        if gdo:
+                            gdo.query()
+                        if light:
+                            light.query()
+
+                    threading.Thread(
+                        target=_refresh,
+                        name=f'konnected-ready-{host}',
+                        daemon=True,
+                    ).start()
 
     # ── discover / nodes ───────────────────────────────────────────────────
 

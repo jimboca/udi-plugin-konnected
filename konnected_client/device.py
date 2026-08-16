@@ -12,6 +12,7 @@ import requests
 from udi_interface import LOGGER
 
 from const import DEFAULT_HTTP_TIMEOUT, DEFAULT_RECONNECT_DELAY, DEFAULT_SSE_READY_TIMEOUT
+from . import stream_debug
 from .models import (
     DeviceType,
     SEM_DOOR,
@@ -55,7 +56,11 @@ class KonnectedDevice:
         self._online = False
         self._device_type = DeviceType.UNKNOWN
         self._state_callback: Optional[StateCallback] = None
-        self._session = requests.Session()
+        # Separate sessions: requests.Session is not thread-safe, and sharing one
+        # between a long-lived SSE stream and REST query/command calls starves
+        # iter_lines (TCP stays up, door events never reach setDriver).
+        self._rest = requests.Session()
+        self._sse = requests.Session()
         self._last_error: Optional[str] = None
         self._pending: Dict[str, dict] = {}
 
@@ -115,10 +120,11 @@ class KonnectedDevice:
     def stop(self) -> None:
         self._stop.set()
         self._online = False
-        try:
-            self._session.close()
-        except Exception:
-            pass
+        for sess in (self._sse, self._rest):
+            try:
+                sess.close()
+            except Exception:
+                pass
 
     # ── entity helpers ─────────────────────────────────────────────────────
 
@@ -148,7 +154,7 @@ class KonnectedDevice:
         if not path:
             return None
         try:
-            r = self._session.get(
+            r = self._rest.get(
                 urljoin(self.base_url + '/', path.lstrip('/')),
                 timeout=DEFAULT_HTTP_TIMEOUT,
             )
@@ -158,8 +164,11 @@ class KonnectedDevice:
                 return None
             if r.status_code != 200:
                 self._last_error = f'GET {path} → HTTP {r.status_code}'
+                stream_debug.log(self.host, 'REST GET fail', self._last_error)
                 return None
-            return r.json()
+            data = r.json()
+            stream_debug.log(self.host, f'REST GET {path}', data)
+            return data
         except Exception as exc:
             self._last_error = str(exc)
             LOGGER.debug('GET %s failed: %s', path, exc)
@@ -172,7 +181,7 @@ class KonnectedDevice:
             return False
         url = urljoin(self.base_url + '/', f'{path.lstrip("/")}/{action}')
         try:
-            r = self._session.post(url, params=params or {}, timeout=DEFAULT_HTTP_TIMEOUT)
+            r = self._rest.post(url, params=params or {}, timeout=DEFAULT_HTTP_TIMEOUT)
             if r.status_code == 404:
                 self._last_error = f'404 for {url}'
                 LOGGER.warning(self._last_error)
@@ -181,6 +190,11 @@ class KonnectedDevice:
                 self._last_error = f'POST {url} → HTTP {r.status_code}'
                 LOGGER.warning(self._last_error)
                 return False
+            stream_debug.log(
+                self.host,
+                f'REST POST {path}/{action}',
+                {'status': r.status_code, 'params': params or {}},
+            )
             return True
         except Exception as exc:
             self._last_error = str(exc)
@@ -214,7 +228,7 @@ class KonnectedDevice:
     def probe(self) -> bool:
         """Lightweight reachability check (web root or events)."""
         try:
-            r = self._session.get(self.base_url + '/', timeout=DEFAULT_HTTP_TIMEOUT)
+            r = self._rest.get(self.base_url + '/', timeout=DEFAULT_HTTP_TIMEOUT)
             return r.status_code < 500
         except Exception as exc:
             self._last_error = str(exc)
@@ -247,7 +261,7 @@ class KonnectedDevice:
             self._semantic.clear()
         self._ready.clear()
 
-        with self._session.get(
+        with self._sse.get(
             self.base_url + '/events',
             stream=True,
             timeout=(DEFAULT_HTTP_TIMEOUT, None),
@@ -319,6 +333,8 @@ class KonnectedDevice:
                     rest_path = self._id_to_rest_path(entity_id)
                     with self._lock:
                         self._entity_paths[entity_id] = rest_path
+
+                    stream_debug.log(self.host, 'SSE recv', event)
 
                     if burst_done['value']:
                         self._dispatch(entity_id, event)

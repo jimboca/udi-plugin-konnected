@@ -29,6 +29,18 @@ Node names come from the device’s mDNS **friendly name** (what you assigned in
 
 You can click **Discover** again anytime to rescan. If mDNS is blocked on your network (guest VLAN, AP isolation, etc.), set **hosts** manually to the device IP and click Discover (or restart the Node Server).
 
+## Logger Level
+
+On the Node Server **Configuration** page, **Logger Level** controls how much goes to `logs/debug.log`. Prefer **Warning** day-to-day.
+
+| Level | Use |
+|-------|-----|
+| **Debug + Stream** | Full plugin debug **plus** every SSE event and REST GET/POST from each GDO (noisy; for diagnosing open/close / Online / Door State) |
+| Debug / Info | Normal plugin diagnostics without the per-event device dump |
+| Warning / Error | Routine operation |
+
+After selecting **Debug + Stream**, open or close a door and watch `logs/debug.log` for lines like `SSE recv` and `REST GET` / `REST POST`.
+
 ## Notices
 
 PG3 Notices are set for problems and **cleared when the condition goes away**:
@@ -75,6 +87,7 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 
 | Symptom | What to check |
 |---------|----------------|
+| Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + Stream**, open/close the door, check `logs/debug.log` for `SSE recv` on the door entity. No SSE lines ⇒ LAN/SSE issue; SSE present but no ST change ⇒ plugin mapping. Restart the Node Server after updating plugin code. |
 | Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD). Avoid `pip install --upgrade zeroconf` on FreeBSD — it builds from source; `install.sh` prefers the OS package. |
 | Notice about `hosts` | Click Discover, or set the parameter and save |
 | Device offline after discover | Ping the IP from the Polyglot host; ensure HTTP port 80 is open; reboot the Konnected |

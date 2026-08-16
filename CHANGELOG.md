@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-08-15
+
+### Added
+
+- PG3 Logger Level **Debug + Stream** — logs every SSE event and REST GET/POST
+  exchanged with Konnected devices (`logs/debug.log`). Use while diagnosing
+  door-state / open-close issues; switch back to Warning when done (verbose).
+
+### Fixed
+
+- Door open/close (and other live entity updates) stopped reaching IoX after
+  startup because REST `query()` shared a `requests.Session` with the long-lived
+  SSE stream. Separate REST/SSE sessions and run reconnect/`_ready` refresh off
+  the SSE thread. Normalize `getDriver` values to int so program DON/DOF still
+  fires when Polyglot returns string driver values.
+
 ## [0.1.4] - 2026-08-15
 
 ### Fixed
