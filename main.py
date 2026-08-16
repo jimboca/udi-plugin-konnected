@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Konnected Node Server for Polyglot v3.
-Local REST/SSE control of Konnected GDO blaQ (White planned).
+Local ESPHome native API control of Konnected GDO blaQ (White planned).
 """
 
 import sys

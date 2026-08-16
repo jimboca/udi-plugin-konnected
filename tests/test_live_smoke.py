@@ -1,4 +1,4 @@
-"""Live LAN smoke: mDNS Discover + REST/SSE connect to a Konnected GDO.
+"""Live LAN smoke: mDNS Discover + native API connect to a Konnected GDO.
 
 Read-only — does not open/close the door.
 
@@ -51,7 +51,7 @@ def test_mdns_discovers_konnected_gdo():
 
 @pytest.mark.live
 def test_discover_and_connect_blaq_readonly():
-    """Discover (mDNS or KONNECTED_HOST), SSE-connect, read door/light/synced."""
+    """Discover (mDNS or KONNECTED_HOST), API-connect, read door/light/synced."""
     entry = require_smoke_host(mdns_timeout=6.0)
     host = entry['host']
     device = smoke_connect(host, ready_timeout=15.0)

@@ -2,7 +2,7 @@
 
 When the eISY CA is regenerated (UDX upgrade/reboot) but this Node Server's
 ``<uuid_slot>.cert`` / ``.key`` are stale, MQTT flaps and Discover / device
-SSE never start. That looks like a Konnected device outage — it is not.
+the Node Server never starts. That looks like a Konnected device outage — it is not.
 """
 
 from __future__ import annotations

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 import time
 from typing import TYPE_CHECKING, Optional
 
@@ -18,9 +17,6 @@ from const import (
     IX_LOCK_UNLOCKED,
     IX_MOTION_CLEAR,
     IX_MOTION_DETECTED,
-    IX_STREAM_HUNG,
-    IX_STREAM_OFFLINE,
-    IX_STREAM_OK,
     IX_SYNCED_NO,
     IX_SYNCED_YES,
     IX_UNKNOWN,
@@ -73,49 +69,33 @@ class GarageDoor(Node):
             return
         self._apply_device_meta(device)
         self.setDriver('GV0', ISY_TRUE if device.online else ISY_FALSE, uom=UOM_BOOLEAN, force=True)
-        self.set_event_stream(
-            IX_STREAM_OK if device.online else IX_STREAM_OFFLINE,
-            force=True,
-        )
-        # Initial SSE burst often arrives before this node exists — REST-query now.
+        # Apply any states already cached from the native API subscribe.
         self.query()
 
     def _apply_device_meta(self, device: 'KonnectedDevice') -> None:
         self.setDriver('GV5', device_type_index(device.device_type), uom=UOM_INDEX, force=True)
 
-    def set_event_stream(self, status: int, force: bool = False) -> None:
-        """Event Stream (GV6): OK / Hung / Offline — hung-SSE debug aid."""
-        self.setDriver('GV6', status, uom=UOM_INDEX, force=force)
-
     def on_device_event(self, key: str, event: dict) -> None:
-        """Called from controller when SSE delivers an update for this host."""
+        """Called from controller when the native API delivers an update."""
         if key == '_online':
             online = bool(event.get('online'))
             self.setDriver('GV0', ISY_TRUE if online else ISY_FALSE, uom=UOM_BOOLEAN)
             if online:
                 self._offline_polls = 0
                 self._stale_unknown = False
-                # Leave Hung/Offline until an entity event proves the stream.
                 device = self.controller.get_device(self.host)
                 if device:
                     self._apply_device_meta(device)
-                    # Never REST-query on the SSE thread — blocks event reads.
-                    threading.Thread(
-                        target=self.query,
-                        name=f'konnected-query-{self.address}',
-                        daemon=True,
-                    ).start()
+                # Do not query() here — cache is cleared on disconnect; stale
+                # Closed would briefly overwrite IoX before subscribe states land.
+                # Native API subscribe_states pushes the live door state.
             else:
                 # Keep last-known Door State / sensors until shortPoll says stale.
                 self._offline_polls = 0
-                self.set_event_stream(IX_STREAM_OFFLINE)
             return
 
         if key == '_ready':
             return
-
-        # Any entity event means the SSE stream is delivering.
-        self.set_event_stream(IX_STREAM_OK)
 
         if key == SEM_DOOR:
             try:
@@ -207,13 +187,7 @@ class GarageDoor(Node):
         self.setDriver('GV2', IX_UNKNOWN, uom=UOM_INDEX)
         self.setDriver('GV3', IX_UNKNOWN, uom=UOM_INDEX)
         self.setDriver('GV4', IX_UNKNOWN, uom=UOM_INDEX)
-        self.set_event_stream(IX_STREAM_OFFLINE)
         self._stale_unknown = True
-
-    def mark_stream_hung(self) -> None:
-        """Online but no SSE entity events — surface Hung before reconnect."""
-        self.set_event_stream(IX_STREAM_HUNG, force=True)
-        LOGGER.warning('GDO %s Event Stream = Hung', self.address)
 
     def _device(self) -> Optional['KonnectedDevice']:
         return self.controller.get_device(self.host)
@@ -315,7 +289,6 @@ class GarageDoor(Node):
         {'driver': 'GV3', 'value': IX_UNKNOWN, 'uom': UOM_INDEX, 'name': 'Motion'},
         {'driver': 'GV4', 'value': IX_UNKNOWN, 'uom': UOM_INDEX, 'name': 'Synced'},
         {'driver': 'GV5', 'value': 0, 'uom': UOM_INDEX, 'name': 'Device Type'},
-        {'driver': 'GV6', 'value': IX_STREAM_OFFLINE, 'uom': UOM_INDEX, 'name': 'Event Stream'},
     ]
     commands = {
         'DON': cmd_open,

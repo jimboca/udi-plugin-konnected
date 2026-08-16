@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI smoke: mDNS discover + read-only REST/SSE connect to a Konnected GDO.
+"""CLI smoke: mDNS discover + read-only native API connect to a Konnected GDO.
 
 Usage:
   PYTHONPATH=. python3 scripts/smoke_blaq.py

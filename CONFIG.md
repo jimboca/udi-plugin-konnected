@@ -1,12 +1,12 @@
 # Configure the Konnected Node Server
 
-Local control of [Konnected](https://konnected.io) garage door openers from IoX / Polyglot v3. This plugin talks to each device over its built-in **REST API** and **Server-Sent Events (SSE)** stream — no MQTT flashing required.
+Local control of [Konnected](https://konnected.io) garage door openers from IoX / Polyglot v3. This plugin talks to each device over ESPHome’s **native API** (TCP port **6053**) — the same local protocol Home Assistant uses. No MQTT firmware flash and **no HTTP SSE**.
 
 ## Supported hardware
 
 | Device | Status | Notes |
 |--------|--------|-------|
-| **GDO blaQ** (GDOv2-Q) | Supported (v1.0.0) | Security+ wireline — door, light, lock, motion, obstruction, synced |
+| **GDO blaQ** (GDOv2-Q) | Supported | Security+ wireline — door, light, lock, motion, obstruction, synced |
 | **GDO White** (GDOv2-S / GDOv1-S) | Planned | Dry-contact + sensors; cover open/close may already work if discovered |
 
 Point the device at your LAN (Wi-Fi) and note its IP address (Konnected app or router DHCP list). Hostname such as `konnected-xxxxxx.local` may work if mDNS resolves on your Polyglot host.
@@ -15,14 +15,14 @@ Point the device at your LAN (Wi-Fi) and note its IP address (Konnected app or r
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `hosts` | No | Optional pin list of device IPs/hostnames, comma-separated. Optional `:port` (default 80). Example: `192.168.1.50`. Discover fills this automatically when mDNS finds devices. |
+| `hosts` | No | Optional pin list of device IPs/hostnames, comma-separated. Optional `:port` (native API default **6053**; `:80` is ignored and mapped to 6053). Example: `192.168.1.50`. Discover fills this automatically when mDNS finds devices. |
 | `change_node_names` | No | `true` / `false` (default `false`). When true, Discover renames IoX nodes to match each device’s Konnected name (mDNS `friendly_name`). |
 
 ## Setup
 
-1. Install / enable the Konnected plugin in PG3.
+1. Install / enable the Konnected plugin in PG3 (install.sh pulls `aioesphomeapi`).
 2. On startup the plugin runs **Discover** automatically: it browses the LAN for Konnected mDNS service `_konnected._tcp` (about 5 seconds), filters to garage door openers (blaQ / White), and adds their IPs to **hosts**.
-3. Wait a few more seconds for each device’s SSE entity discovery.
+3. Wait a few seconds for each device’s native API entity discovery.
 4. IoX should show a **Garage Door Opener** node named with the name you set on the Konnected device (for example **GDO-South**), plus a child **Garage Light** when the device exposes a light.
 
 Node names come from the device’s mDNS **friendly name** (what you assigned in the Konnected app / ESPHome). Custom names you set later in IoX are kept unless `change_node_names` is true.
@@ -35,11 +35,11 @@ On the Node Server **Configuration** page, **Logger Level** controls how much go
 
 | Level | Use |
 |-------|-----|
-| **Debug + Stream** | Full plugin debug **plus** every SSE event and REST GET/POST from each GDO as **INFO** lines (`SSE recv` / `REST …`; noisy; for diagnosing open/close / Online / Door State) |
-| Debug / Info | Normal plugin diagnostics without the per-event device dump |
+| **Debug + API Stream** | Full plugin debug **plus** each native API entity state update as **INFO** (`API state …`; noisy; for diagnosing open/close / Online) |
+| Debug / Info | Normal plugin diagnostics without the per-event dump |
 | Warning / Error | Routine operation |
 
-After selecting **Debug + Stream**, open or close a door and watch `logs/debug.log` for lines like `SSE recv` and `REST GET` / `REST POST`.
+After selecting **Debug + API Stream**, open or close a door and watch `logs/debug.log` for `API state` lines.
 
 ## Notices
 
@@ -50,7 +50,7 @@ PG3 Notices are set for problems and **cleared when the condition goes away**:
 | No devices configured | `hosts` empty | Devices discovered or `hosts` set |
 | mDNS / Discover errors | zeroconf missing, browse failure, or no GDOs found | Discover succeeds |
 | Unsupported Konnected device | mDNS finds alarm panel / non-GDO project | Device no longer seen on Discover |
-| Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, command failure, or **SSE hung** (Online but no events ~120s) | Device healthy again / stream receiving again (**Event Stream** = OK) |
+| Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, or command failure | Device healthy again |
 | MQTT (`mqtt`) | Client `.cert` fails CA verify, or PG3 MQTT keeps disconnecting | MQTT stable ~45s with a valid client cert |
 
 Unsupported Konnected products (for example alarm panels) are **not** added as IoX nodes; they only appear as Notices so you know why they were ignored.
@@ -60,8 +60,7 @@ Unsupported Konnected products (for example alarm panels) are **not** added as I
 | Status | Meaning |
 |--------|---------|
 | **Door State** | Closed / Open / Stopped / Closing / Opening / Unknown |
-| **Online** | Plugin has a live SSE connection to the device. On a brief drop, Door State and sensors keep their last known values. After **2 consecutive shortPolls** while still offline, those values become Unknown (so timing follows the Node Server **shortPoll** setting; default 30s → about 60s). |
-| **Event Stream** | **OK** = receiving SSE entity events; **Hung** = Online but no events for ~120s (plugin Notices and force-reconnects — use this while debugging missed open/close); **Offline** = no SSE link |
+| **Online** | Plugin has a live native API connection to the device. On a brief drop, Door State and sensors keep their last known values. After **2 consecutive shortPolls** while still offline, those values become Unknown (so timing follows the Node Server **shortPoll** setting; default 30s → about 60s). |
 | **Obstruction** | Safety beam clear / obstructed |
 | **Lockout** | Wireless remotes unlocked / locked (blaQ) |
 | **Motion** | Clear / Detected (clears after ~60s if the device does not send Off) |
@@ -88,18 +87,18 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 
 | Symptom | What to check |
 |---------|----------------|
-| Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + Stream**, open/close the door, check `logs/debug.log` for `SSE recv` on the door entity. No SSE lines for >2 minutes while Online ⇒ plugin will force-reconnect; if still dead, restart the Node Server. |
+| Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + API Stream**, open/close the door, check `logs/debug.log` for `API state` with `sem=door`. Confirm **Online** is on. Restart the Node Server if the API stays offline. |
 | Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD). Avoid `pip install --upgrade zeroconf` on FreeBSD — it builds from source; `install.sh` prefers the OS package. |
 | Notice about `hosts` | Click Discover, or set the parameter and save |
-| Device offline after discover | Ping the IP from the Polyglot host; ensure HTTP port 80 is open; reboot the Konnected |
+| Device offline after discover | Ping the IP from the Polyglot host; ensure TCP **6053** is open (native API); reboot the Konnected |
 | Door commands fail, **Synced** = Not Synced | Run **Re-sync** on the garage node; complete initial blaQ pairing if new |
 | Nodes missing after upgrade | Discover again (addresses are stable per host) |
-| New GDO stuck at Unknown after Discover | Fixed after 0.1.2 — restart the Node Server (or reinstall from beta once 0.1.3+ is available) so Discover no longer blocks the Command thread. Then click **Discover** or **Query** on the door node. |
+| Install fails on `aioesphomeapi` | FreeBSD: `install.sh` sets `SKIP_CYTHON=1`. Ensure `py311-cryptography` is installed (`pkg install py311-cryptography`). |
 | NS offline / Discover never runs / “device” looks dead after eISY reboot or UDX update | Usually **PG3 MQTT**, not the GDO. Check Notices for an **mqtt** message and `logs/debug.log` for `MQTT health FAILED`. Client `.cert`/`.key` must verify against `/usr/local/etc/ssl/certs/ud.ca.cert`. Reinstall this Node Server (or regenerate certs) then restart. Ping the GDO IP to confirm the door itself is fine. |
-| White device shows Unknown type | Expected in 0.1.0 — cover control may still work; White sensors come later |
+| White device shows Unknown type | Expected for early builds — cover control may still work; White sensors come later |
 
 ## Network notes
 
-- Traffic is plain HTTP on the LAN (ESPHome web server). Keep devices on a trusted VLAN.
-- The plugin does **not** use Konnected Cloud or MQTT.
-- Entity paths are discovered from `/events` so firmware renames and ESPHome URL format changes are handled without hardcoding paths.
+- Control uses the ESPHome **native API** on TCP **6053** (not Konnected Cloud, not device MQTT, not HTTP `/events` SSE).
+- Keep devices on a trusted VLAN.
+- Entity names come from the live API list so firmware renames are handled without hardcoding paths.

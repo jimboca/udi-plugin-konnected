@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-16
+
+### Changed
+
+- **Transport: ESPHome native API** (TCP **6053** / `aioesphomeapi`) replaces
+  HTTP REST + SSE. Same protocol Home Assistant uses; drops the fragile web
+  server event stream. Profile **0.1.2** removes the temporary **Event Stream**
+  (GV6) status.
+
+### Fixed
+
+- Faster IoX updates after brief API drops: reconnect delay **1s** (was 5s);
+  do not re-push stale Closed/Off from cache on reconnect; marshal node
+  `setDriver` off the API asyncio thread so MQTT work cannot starve keepalives.
+
+### Removed
+
+- SSE `/events` client, REST entity GETs for live state, hung-SSE reconnect
+  watchdog, and **Debug + Stream** SSE/REST dump (renamed **Debug + API Stream**
+  for native state lines).
+
 ## [1.0.1] - 2026-08-16
 
 ### Added

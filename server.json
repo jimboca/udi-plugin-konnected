@@ -1,28 +1,28 @@
 {
-    "name": "Konnected",
-    "docs": "https://github.com/jimboca/udi-plugin-konnected",
-    "type": "python3",
-    "executable": "main.py",
-    "install": "install.sh",
-    "description": "Control Konnected GDO blaQ (and later White) garage door openers over the local network via REST/SSE",
-    "notice": "Requires local network access to each Konnected device. Set the hosts custom parameter to device IP address(es).",
-    "logLevel": "INFO",
-    "shortPoll": "30",
-    "longPoll": "300",
-    "discover": true,
-    "customParams": {
-        "hosts": "",
-        "change_node_names": "false"
-    },
-    "profile_version": "0.1.1",
-    "credits": [
-        {
-            "title": "Konnected Node Server",
-            "author": "Universal Devices",
-            "version": "1.0.1",
-            "date": "August 2026",
-            "source": "https://github.com/jimboca/udi-plugin-konnected",
-            "license": "https://github.com/jimboca/udi-plugin-konnected/LICENSE"
-        }
-    ]
+  "name": "Konnected",
+  "docs": "https://github.com/jimboca/udi-plugin-konnected",
+  "type": "python3",
+  "executable": "main.py",
+  "install": "install.sh",
+  "description": "Control Konnected GDO blaQ (and later White) garage door openers over the local network via the ESPHome native API",
+  "notice": "Requires local network access to each Konnected device. Set the hosts custom parameter to device IP address(es).",
+  "logLevel": "INFO",
+  "shortPoll": "30",
+  "longPoll": "300",
+  "discover": true,
+  "customParams": {
+    "hosts": "",
+    "change_node_names": "false"
+  },
+  "profile_version": "0.1.2",
+  "credits": [
+    {
+      "title": "Konnected Node Server",
+      "author": "Universal Devices",
+      "version": "2.0.0",
+      "date": "August 2026",
+      "source": "https://github.com/jimboca/udi-plugin-konnected",
+      "license": "https://github.com/jimboca/udi-plugin-konnected/LICENSE"
+    }
+  ]
 }

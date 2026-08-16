@@ -33,11 +33,6 @@ IX_DEVTYPE_UNKNOWN = 0
 IX_DEVTYPE_BLAQ = 1
 IX_DEVTYPE_WHITE = 2
 
-# Event Stream (GV6) — short-term SSE health for debugging hung streams
-IX_STREAM_OK = 0       # receiving entity events
-IX_STREAM_HUNG = 1     # Online but no SSE events for SSE_IDLE_RECONNECT_SEC
-IX_STREAM_OFFLINE = 2  # no live SSE connection
-
 # Online / on-off
 ISY_FALSE = 0
 ISY_TRUE = 1
@@ -56,22 +51,19 @@ NS_HAS_LIGHT = 'has_light'
 NS_FRIENDLY_NAME = 'friendly_name'
 
 # Defaults
-DEFAULT_SSE_READY_TIMEOUT = 15.0
-DEFAULT_HTTP_TIMEOUT = 8.0
-DEFAULT_RECONNECT_DELAY = 5.0
+DEFAULT_API_PORT = 6053
+DEFAULT_API_READY_TIMEOUT = 15.0
+DEFAULT_RECONNECT_DELAY = 1.0
 DEFAULT_MDNS_SECONDS = 5.0
 MOTION_EVENT_MASK_TIME = 30  # ignore retained-like motion bursts after start
 MOTION_STATE_RESET_TIME = 60  # clear motion if device never sends OFF
-# After this many consecutive shortPolls while SSE is down, mark door/sensor
+# After this many consecutive shortPolls while API is down, mark door/sensor
 # drivers Unknown (timing follows the user-set PG3 shortPoll interval).
 OFFLINE_STALE_SHORTPOLLS = 2
-# Wait this long after SSE drops before showing a per-device "reconnecting"
-# Notice. Brief resets (common on blaQ) reconnect in ~5s; without a grace
-# window the Notice flaps and a PG3 Notices.load echo can leave it stuck.
+# Wait this long after API drops before showing a per-device "reconnecting"
+# Notice. Brief resets reconnect in ~5s; without a grace window the Notice
+# flaps and a PG3 Notices.load echo can leave it stuck.
 NOTICE_OFFLINE_GRACE_SEC = 30.0
-# If Online but no SSE entity event for this long, close the stream so the
-# client reconnects (covers hung iter_lines after REST/rediscovery).
-SSE_IDLE_RECONNECT_SEC = 120.0
 
 # Notice keys
 NOTICE_HOSTS = 'hosts'

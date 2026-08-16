@@ -1,4 +1,4 @@
-"""Toggle verbose Konnected device traffic logging (Debug + Stream)."""
+"""Optional verbose logging of native API state/command traffic."""
 
 from __future__ import annotations
 
@@ -9,24 +9,20 @@ from udi_interface import LOGGER
 _enabled = False
 
 
-def set_enabled(on: bool) -> None:
+def set_enabled(enabled: bool) -> None:
     global _enabled
-    was = _enabled
-    _enabled = bool(on)
-    if _enabled != was:
-        LOGGER.info('Debug + Stream device logging %s', 'ON' if _enabled else 'OFF')
+    _enabled = bool(enabled)
+    LOGGER.info('Konnected API stream debug %s', 'ON' if _enabled else 'OFF')
 
 
 def enabled() -> bool:
     return _enabled
 
 
-def log(host: str, direction: str, detail: Any) -> None:
-    """Log one device message when Debug + Stream is active.
-
-    Uses INFO so lines appear under Debug + Stream even when PG3's logger
-    level name mapping is quirky for custom levels.
-    """
+def log(host: str, label: str, payload: Any = None) -> None:
     if not _enabled:
         return
-    LOGGER.info('%s %s %s', host, direction, detail)
+    if payload is None:
+        LOGGER.info('%s %s', host, label)
+    else:
+        LOGGER.info('%s %s %s', host, label, payload)

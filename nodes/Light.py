@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING, Optional
 
 from udi_interface import LOGGER, Node
@@ -54,7 +53,7 @@ class Light(Node):
             uom=UOM_BOOLEAN,
             force=True,
         )
-        # Initial SSE burst often arrives before this node exists — REST-query now.
+        # Initial API states often arrive before this node exists — apply cache.
         if device and device.online:
             self.query()
 
@@ -65,12 +64,7 @@ class Light(Node):
             if online:
                 self._offline_polls = 0
                 self._stale_unknown = False
-                if self.controller.get_device(self.host):
-                    threading.Thread(
-                        target=self.query,
-                        name=f'konnected-query-{self.address}',
-                        daemon=True,
-                    ).start()
+                # Live Light State comes from subscribe_states; avoid stale cache query.
             else:
                 # Keep last-known Light State until shortPoll says stale.
                 self._offline_polls = 0

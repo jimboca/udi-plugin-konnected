@@ -60,6 +60,8 @@ def test_parse_door_states():
     assert parse_door_state({'state': 'OPEN', 'current_operation': 'IDLE'}) == IX_DOOR_OPEN
     assert parse_door_state({'state': 'OPEN', 'current_operation': 'OPENING'}) == IX_DOOR_OPENING
     assert parse_door_state({'state': 'CLOSED', 'current_operation': 'CLOSING'}) == IX_DOOR_CLOSING
+    assert parse_door_state({'state': 'OPEN', 'current_operation': 'IS_OPENING'}) == IX_DOOR_OPENING
+    assert parse_door_state({'state': 'CLOSED', 'current_operation': 'IS_CLOSING'}) == IX_DOOR_CLOSING
 
 
 def test_parse_bool_and_lock():
@@ -69,11 +71,19 @@ def test_parse_bool_and_lock():
     assert parse_lock_locked({'state': 'UNLOCKED'}) is False
 
 
-def test_rest_path_new_and_legacy():
-    assert KonnectedDevice._id_to_rest_path('cover/Garage Door') == '/cover/Garage%20Door'
-    assert KonnectedDevice._id_to_rest_path('binary_sensor/Obstruction') == '/binary_sensor/Obstruction'
-    assert KonnectedDevice._id_to_rest_path('binary-sensor-motion') == '/binary_sensor/motion'
-    assert KonnectedDevice._id_to_rest_path('cover-garage_door') == '/cover/garage_door'
+def test_entity_id_from_info():
+    from konnected_client.device import _entity_id_from_info
+
+    CoverInfo = type('CoverInfo', (), {'name': 'Garage Door'})
+    assert _entity_id_from_info(CoverInfo()) == 'cover/Garage Door'
+
+
+def test_host_strips_http_port_for_api():
+    d = KonnectedDevice('192.168.1.55:80')
+    assert d.host == '192.168.1.55'
+    assert d.port == 6053
+    d2 = KonnectedDevice('192.168.1.55:6053')
+    assert d2.port == 6053
 
 
 def test_host_address_stable():

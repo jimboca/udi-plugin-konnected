@@ -31,7 +31,7 @@ xml-check:
 test:
 	$(PYTHON) -m pytest tests/ -q
 
-# Live LAN smoke (mDNS + REST/SSE). Skips if no device unless KONNECTED_SMOKE=1.
+# Live LAN smoke (mDNS + native API). Skips if no device unless KONNECTED_SMOKE=1.
 smoke:
 	PYTHONPATH=. $(PYTHON) scripts/smoke_blaq.py
 	PYTHONPATH=. $(PYTHON) -m pytest tests/test_live_smoke.py -v

@@ -151,7 +151,7 @@ def device_type_index(device_type: DeviceType) -> int:
 
 
 def parse_door_state(event: dict) -> Optional[int]:
-    """Map cover SSE/REST payload to IoX door index."""
+    """Map cover API state payload to IoX door index."""
     from const import (
         IX_DOOR_CLOSED,
         IX_DOOR_CLOSING,
@@ -161,9 +161,9 @@ def parse_door_state(event: dict) -> Optional[int]:
     )
 
     op = str(event.get('current_operation') or '').upper()
-    if op == 'OPENING':
+    if op in ('OPENING', 'IS_OPENING'):
         return IX_DOOR_OPENING
-    if op == 'CLOSING':
+    if op in ('CLOSING', 'IS_CLOSING'):
         return IX_DOOR_CLOSING
 
     state = str(event.get('state') or '').upper()

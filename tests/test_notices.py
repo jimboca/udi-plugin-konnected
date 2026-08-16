@@ -20,6 +20,8 @@ class _Bare:
 def _ctl():
     c = _Bare()
     c.Notices = _FakeNotices()
+    c._device_offline_since = {}
+    c._device_notice_force_cleared = {}
     # Bind methods from Controller
     c._notice_set = Controller._notice_set.__get__(c)
     c._notice_clear = Controller._notice_clear.__get__(c)
@@ -76,6 +78,7 @@ def test_unknown_devices_notice_and_clear_stale():
 def test_refresh_device_notice_healthy_clears():
     class _Dev:
         online = True
+        discovery_ready = True
         last_error = None
         device_type = type('T', (), {'value': 'blaq'})()
 
@@ -97,6 +100,7 @@ def test_refresh_device_notice_healthy_clears():
 def test_refresh_device_notice_no_cover():
     class _Dev:
         online = True
+        discovery_ready = True
         last_error = None
         device_type = None
 

@@ -1,4 +1,4 @@
-"""Helpers for live LAN smoke tests (Discover + REST/SSE connect)."""
+"""Helpers for live LAN smoke tests (Discover + native API connect)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def resolve_smoke_hosts(mdns_timeout: float = 5.0) -> List[dict]:
         return [{
             'host': env_host,
             'ip': env_host.split(':')[0],
-            'port': int(env_host.split(':')[1]) if ':' in env_host else 80,
+            'port': int(env_host.split(':')[1]) if ':' in env_host else 6053,
             'friendly_name': env_host,
             'project_name': os.environ.get('KONNECTED_PROJECT', ''),
             'mac': '',
@@ -46,7 +46,7 @@ def require_smoke_host(mdns_timeout: float = 5.0) -> dict:
 
 
 def smoke_connect(host: str, ready_timeout: float = 15.0, attempts: int = 2) -> KonnectedDevice:
-    """Connect REST/SSE (read-only). Caller must device.stop()."""
+    """Connect native API (read-only). Caller must device.stop()."""
     last_err = 'unknown'
     for attempt in range(1, attempts + 1):
         device = KonnectedDevice(host)
@@ -54,7 +54,7 @@ def smoke_connect(host: str, ready_timeout: float = 15.0, attempts: int = 2) -> 
         if ok and device.semantic_entity(SEM_DOOR):
             return device
         last_err = device.last_error or (
-            f'SSE ready but no door entity (attempt {attempt}/{attempts}); '
+            f'API ready but no door entity (attempt {attempt}/{attempts}); '
             f'entities={device.entity_ids()}'
         )
         device.stop()
@@ -62,14 +62,20 @@ def smoke_connect(host: str, ready_timeout: float = 15.0, attempts: int = 2) -> 
 
 
 def assert_blaq_basics(device: KonnectedDevice) -> None:
-    """Read-only assertions for a typical blaQ after SSE discovery."""
+    """Read-only assertions for a typical blaQ after native API discovery."""
     assert device.online, 'device should be online after start'
     assert device.semantic_entity(SEM_DOOR), f'missing door; entities={device.entity_ids()}'
-    door = device.get_state(SEM_DOOR)
-    assert door is not None, 'GET cover state failed'
+    # Wait briefly for initial subscribe_states cache
+    import time
+    door = None
+    for _ in range(20):
+        door = device.get_state(SEM_DOOR)
+        if door is not None:
+            break
+        time.sleep(0.1)
+    assert door is not None, 'no cached cover state yet'
     assert str(door.get('state', '')).upper() in ('OPEN', 'CLOSED'), door
 
-    # blaQ usually has these; tolerate missing light/lock on odd firmware
     if device.device_type == DeviceType.BLAQ or device.has_light or device.has_lock:
         assert device.device_type in (DeviceType.BLAQ, DeviceType.UNKNOWN)
 

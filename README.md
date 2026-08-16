@@ -2,39 +2,39 @@
 
 Polyglot v3 Node Server for [Konnected](https://konnected.io) garage door openers.
 
-Uses each device’s local **REST + SSE** API (ESPHome web server). No MQTT firmware flash is required.
+Uses each device’s local **ESPHome native API** (TCP **6053**) — the same protocol Home Assistant uses. No MQTT flash and no HTTP SSE.
 
 ## Status
 
 | Version | Hardware |
 |---------|----------|
-| **1.0.0** | **GDO blaQ** — door, light, lock, motion, obstruction, synced / re-sync |
+| **1.x** | **GDO blaQ** — door, light, lock, motion, obstruction, synced / re-sync |
 | Later | **GDO White** — dry-contact opener; architecture already classifies White devices |
 
 ## Quick start
 
-1. Install the plugin in PG3 and run install.
+1. Install the plugin in PG3 and run install (`aioesphomeapi` required).
 2. On startup it runs **Discover** (mDNS `_konnected._tcp`) and creates IoX nodes named from each device’s Konnected friendly name; click Discover anytime to rescan.
 3. Optional: set custom parameter `hosts` to pin IPs if mDNS is unavailable.
 
 Full setup, statuses, and troubleshooting: **[CONFIG.md](CONFIG.md)**.
 
-To capture live device traffic while debugging, set PG3 **Logger Level** to **Debug + Stream** (see CONFIG) and watch `logs/debug.log` for `SSE recv` / `REST` lines. Each door also has an **Event Stream** status (OK / Hung / Offline) for hung-SSE diagnosis.
+To capture live device traffic while debugging, set PG3 **Logger Level** to **Debug + API Stream** (see CONFIG) and watch `logs/debug.log` for `API state` lines.
 
 If the Node Server never Discovers after an eISY/UDX update, check PG3 **Notices** for an **mqtt** entry and `logs/debug.log` for `MQTT health FAILED` — that is a Polyglot TLS/cert problem, not the garage opener.
 
 ## Requirements
 
 - PG3 / PG3x with Python 3
-- Konnected GDO reachable on the LAN (HTTP); multicast DNS for auto-discover
-- Dependencies: `udi_interface`, `requests`, `zeroconf`, `markdown2` (see `requirements.txt`). On FreeBSD install **`pkg install py311-zeroconf`** first — `install.sh` will use it and not pip-upgrade zeroconf (avoids a source build).
+- Konnected GDO reachable on the LAN (native API **6053**); multicast DNS for auto-discover
+- Dependencies: `udi_interface`, `aioesphomeapi`, `zeroconf`, `markdown2` (see `requirements.txt`). On FreeBSD install **`pkg install py311-zeroconf py311-cryptography`** first — `install.sh` uses OS zeroconf and installs `aioesphomeapi` with `SKIP_CYTHON=1`.
 
 ## Development
 
 ```bash
 cd plugins/udi-plugin-konnected
 gmake check          # xmllint + pytest (live tests skip if no GDO on LAN)
-gmake smoke          # mDNS discover + read-only connect to a blaQ (fails if none found)
+gmake smoke          # mDNS discover + read-only native API connect (fails if none found)
 gmake zip            # ad-hoc local zip (not a store release)
 gmake help           # list targets
 ```
@@ -54,4 +54,5 @@ Do not run release targets unless cutting a release.
 
 - [CONFIG.md](CONFIG.md) — Polyglot Configuration help
 - [CHANGELOG.md](CHANGELOG.md)
-- Konnected API: [GDO blaQ](https://konnected.readme.io/reference/gdo-blaq-introduction), [endpoint discovery](https://konnected.readme.io/reference/endpoint-discovery-pattern)
+- ESPHome native API: [api component](https://esphome.io/components/api/)
+- Konnected: [GDO blaQ](https://konnected.readme.io/reference/gdo-blaq-introduction)

@@ -1,4 +1,4 @@
-"""Local REST/SSE client for Konnected ESPHome garage door devices."""
+"""Local ESPHome native API client for Konnected garage door devices."""
 
 from .device import KonnectedDevice
 from .mdns import browse_konnected_devices, browse_konnected_gdos

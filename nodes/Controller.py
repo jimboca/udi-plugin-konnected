@@ -30,7 +30,6 @@ from const import (
     NS_HOST,
     PARAM_CHANGE_NODE_NAMES,
     PARAM_HOSTS,
-    SSE_IDLE_RECONNECT_SEC,
     UOM_BOOLEAN,
     UOM_RAW,
 )
@@ -136,7 +135,7 @@ class Controller(Node):
         self._mqtt_watch_thread: Optional[threading.Thread] = None
         self._mqtt_notice_active = False
         self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
-        # host → time.time() when SSE first went offline (for notice grace).
+        # host → time.time() when API first went offline (for notice grace).
         self._device_offline_since: Dict[str, float] = {}
         # host → True after we force-published a clear following reconnect.
         self._device_notice_force_cleared: Dict[str, bool] = {}
@@ -203,10 +202,8 @@ class Controller(Node):
             self.heartbeat()
             self._check_connections()
         elif polltype == 'shortPoll':
-            # Detect hung SSE on shortPoll (longPoll alone can be 5+ minutes).
-            self._check_sse_health()
             # Re-assert healthy notices so a stale PG3 Notices.load echo cannot
-            # leave "Connection lost — reconnecting…" up while SSE is live.
+            # leave "Connection lost — reconnecting…" up while the API is live.
             for host, device in list(self.devices.items()):
                 if device.online:
                     self._refresh_device_notice(host, device)
@@ -259,10 +256,10 @@ class Controller(Node):
 
     def handler_config_done(self):
         LOGGER.debug('config done')
-        self.poly.addLogLevel('DEBUG_STREAM', 9, 'Debug + Stream')
+        self.poly.addLogLevel('DEBUG_STREAM', 9, 'Debug + API Stream')
 
     def handler_log_level(self, level):
-        """PG3 Logger Level — Debug + Stream dumps SSE/REST from devices."""
+        """PG3 Logger Level — Debug + API Stream dumps native entity states."""
         LOGGER.info('log level: %s', level)
         name = ''
         lvl = 30
@@ -505,7 +502,7 @@ class Controller(Node):
 
     @staticmethod
     def _friendly_offline_message(raw: Optional[str]) -> str:
-        """Map noisy HTTP/SSE exceptions to a short reconnecting notice."""
+        """Map noisy connection exceptions to a short reconnecting notice."""
         text = (raw or '').strip()
         low = text.lower()
         if not text:
@@ -525,7 +522,6 @@ class Controller(Node):
             )
         ):
             return 'Connection lost — reconnecting…'
-        # Collapse requests' ugly "(msg, ExcType(...))" tuples
         if text.startswith('(') and 'Connection' in text:
             return 'Connection lost — reconnecting…'
         return text
@@ -544,7 +540,7 @@ class Controller(Node):
         if not device.online:
             since = self._device_offline_since.setdefault(host, time.time())
             self._device_notice_force_cleared.pop(host, None)
-            # Brief SSE drops reconnect in seconds — do not flash a Notice.
+            # Brief API drops reconnect in seconds — do not flash a Notice.
             if time.time() - since < NOTICE_OFFLINE_GRACE_SEC:
                 self.notice_device(host, '')
                 return
@@ -552,7 +548,7 @@ class Controller(Node):
             return
 
         self._device_offline_since.pop(host, None)
-        # SSE is back — drop any prior disconnect notice immediately.
+        # API is back — drop any prior disconnect notice immediately.
         # Skip "no cover" until discovery finishes so we do not flash a false error.
         if not device.discovery_ready:
             do_force = force_clear_publish or not self._device_notice_force_cleared.get(host)
@@ -645,34 +641,13 @@ class Controller(Node):
         self._refresh_device_notice(host, device)
         return device
 
-    def _check_sse_health(self) -> None:
-        """If Online but no SSE entity events for too long, Hung + Notice + reconnect."""
-        for host, device in list(self.devices.items()):
-            if not device.online or not device.sse_idle_too_long(SSE_IDLE_RECONNECT_SEC):
-                continue
-            idle = device.seconds_since_sse_event
-            idle_s = f'{idle:.0f}s' if idle is not None else 'since connect'
-            LOGGER.warning(
-                'Hung SSE on %s (no entity events for %s, threshold %ss) — '
-                'forcing reconnect',
-                host,
-                idle_s,
-                int(SSE_IDLE_RECONNECT_SEC),
-            )
-            gdo = self.gdo_nodes.get(host)
-            if gdo:
-                gdo.mark_stream_hung()
-            self.notice_device(
-                host,
-                f'SSE stream hung (no events for {idle_s}) — reconnecting…',
-            )
-            device.force_sse_reconnect()
-
     def _check_connections(self):
-        self._check_sse_health()
         for host, device in list(self.devices.items()):
             if not device.online:
-                LOGGER.info('Device %s offline — leaving SSE reconnect to client thread', host)
+                LOGGER.info(
+                    'Device %s offline — leaving native API reconnect to client thread',
+                    host,
+                )
             self._refresh_device_notice(host, device)
         self._update_counts()
 
@@ -700,9 +675,6 @@ class Controller(Node):
                 self._refresh_device_notice(
                     host, device, force_clear_publish=online_event
                 )
-            # `_ready` no longer REST-queries: the SSE burst is applied before
-            # this callback, and concurrent REST was starving live door events.
-            # Node start() / Query still REST-refresh when needed.
 
     # ── discover / nodes ───────────────────────────────────────────────────
 
@@ -980,7 +952,7 @@ class Controller(Node):
     def _add_gdo_node(self, host: str, name: str, rename: bool = False) -> GarageDoor:
         addr = host_to_address(host)
         node = GarageDoor(self, addr, name, host)
-        # Register before wait so SSE/_ready can update drivers during addNode.
+        # Register before wait so API/_ready can update drivers during addNode.
         self.gdo_nodes[host] = node
         self.poly.addNode(node, rename=rename or self.change_node_names)
         if not self.wait_for_node_done(addr):
@@ -993,7 +965,7 @@ class Controller(Node):
                 LOGGER.error(
                     'Timed out waiting for GDO node %s — light child may fail', addr
                 )
-        # Do not rely only on START (can lag); pull REST state now.
+        # Do not rely only on START (can lag); apply cached API state now.
         try:
             node.query()
         except Exception:

@@ -46,7 +46,7 @@ def is_garage_door_project(project_name: str) -> bool:
     """Return True for GDO firmware; False for alarm panels / other Konnected gear.
 
     Empty project_name is treated as unknown (not a confirmed GDO) so callers can
-    notice it; SSE cover detection is the final gate for adding nodes.
+    notice it; API cover detection is the final gate for adding nodes.
     """
     name = (project_name or '').lower().strip()
     if not name:
