@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-16
+
 ### Added
 
 - Garage door **Event Stream** status (OK / Hung / Offline) for debugging SSE
   that stays Online while events stop. Hung is set when no entity events arrive
   for ~120s (checked on shortPoll); the plugin Notices and force-reconnects.
+  Profile version **0.1.1**.
 
 ### Fixed
 
