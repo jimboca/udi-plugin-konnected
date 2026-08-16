@@ -348,8 +348,14 @@ class KonnectedDevice:
                 if not burst_done['value'] and self._entity_paths:
                     _mark_ready(force=True)
 
-            # stream ended
+            # stream ended (clean close or drop without exception)
+            was_online = self._online
             self._online = False
+            if was_online and self._state_callback and not self._stop.is_set():
+                try:
+                    self._state_callback('_online', {'online': False})
+                except Exception:
+                    LOGGER.exception('online callback failed')
 
     def _pending_dispatch(self, entity_id: str, event: dict) -> None:
         self._pending[entity_id] = event

@@ -60,6 +60,10 @@ MOTION_STATE_RESET_TIME = 60  # clear motion if device never sends OFF
 # After this many consecutive shortPolls while SSE is down, mark door/sensor
 # drivers Unknown (timing follows the user-set PG3 shortPoll interval).
 OFFLINE_STALE_SHORTPOLLS = 2
+# Wait this long after SSE drops before showing a per-device "reconnecting"
+# Notice. Brief resets (common on blaQ) reconnect in ~5s; without a grace
+# window the Notice flaps and a PG3 Notices.load echo can leave it stuck.
+NOTICE_OFFLINE_GRACE_SEC = 30.0
 
 # Notice keys
 NOTICE_HOSTS = 'hosts'

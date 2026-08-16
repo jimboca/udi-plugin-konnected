@@ -22,6 +22,7 @@ from const import (
     NOTICE_HOSTS,
     NOTICE_MDNS,
     NOTICE_MQTT,
+    NOTICE_OFFLINE_GRACE_SEC,
     NOTICE_UNKNOWN_PREFIX,
     NS_DEVICE_TYPE,
     NS_FRIENDLY_NAME,
@@ -134,6 +135,10 @@ class Controller(Node):
         self._mqtt_watch_thread: Optional[threading.Thread] = None
         self._mqtt_notice_active = False
         self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
+        # host → time.time() when SSE first went offline (for notice grace).
+        self._device_offline_since: Dict[str, float] = {}
+        # host → True after we force-published a clear following reconnect.
+        self._device_notice_force_cleared: Dict[str, bool] = {}
 
         poly.subscribe(poly.START, self.handler_start, address)
         poly.subscribe(poly.STOP, self.handler_stop)
@@ -197,6 +202,11 @@ class Controller(Node):
             self.heartbeat()
             self._check_connections()
         elif polltype == 'shortPoll':
+            # Re-assert healthy notices so a stale PG3 Notices.load echo cannot
+            # leave "Connection lost — reconnecting…" up while SSE is live.
+            for host, device in list(self.devices.items()):
+                if device.online:
+                    self._refresh_device_notice(host, device)
             for node in self.gdo_nodes.values():
                 node.reset_motion_if_stale()
                 node.check_offline_stale()
@@ -446,13 +456,24 @@ class Controller(Node):
             was_connected = connected
             time.sleep(_MQTT_WATCH_INTERVAL_SEC)
 
-    def notice_device(self, host: str, message: str):
-        """Per-device error notice; empty message clears it."""
+    def notice_device(self, host: str, message: str, force_publish: bool = False):
+        """Per-device error notice; empty message clears it.
+
+        force_publish: when clearing and the key is already absent locally,
+        still push the notices document so PG3 cannot keep a stale entry after
+        a Custom.load race re-introduced the key in memory-only or UI-only.
+        """
         key = NOTICE_DEVICE_PREFIX + host_to_address(host)
         if message:
             self._notice_set(key, f'{host}: {message}')
-        else:
+            return
+        if key in self.Notices:
             self._notice_clear(key)
+        elif force_publish:
+            try:
+                self.Notices._save()
+            except Exception:
+                LOGGER.debug('Could not force-publish notices clear for %s', host, exc_info=True)
 
     @staticmethod
     def _unknown_notice_key(entry: dict) -> str:
@@ -506,18 +527,35 @@ class Controller(Node):
             return 'Connection lost — reconnecting…'
         return text
 
-    def _refresh_device_notice(self, host: str, device: Optional[KonnectedDevice]) -> None:
+    def _refresh_device_notice(
+        self,
+        host: str,
+        device: Optional[KonnectedDevice],
+        force_clear_publish: bool = False,
+    ) -> None:
         """Set or clear the per-host notice from current client state."""
         if device is None:
+            self._device_offline_since.pop(host, None)
             self.notice_device(host, 'Not connected')
             return
         if not device.online:
+            since = self._device_offline_since.setdefault(host, time.time())
+            self._device_notice_force_cleared.pop(host, None)
+            # Brief SSE drops reconnect in seconds — do not flash a Notice.
+            if time.time() - since < NOTICE_OFFLINE_GRACE_SEC:
+                self.notice_device(host, '')
+                return
             self.notice_device(host, self._friendly_offline_message(device.last_error))
             return
+
+        self._device_offline_since.pop(host, None)
         # SSE is back — drop any prior disconnect notice immediately.
         # Skip "no cover" until discovery finishes so we do not flash a false error.
         if not device.discovery_ready:
-            self.notice_device(host, '')
+            do_force = force_clear_publish or not self._device_notice_force_cleared.get(host)
+            self.notice_device(host, '', force_publish=do_force)
+            if do_force:
+                self._device_notice_force_cleared[host] = True
             return
         if device.semantic_entity('door') is None:
             self.notice_device(
@@ -534,7 +572,10 @@ class Controller(Node):
             )
             return
         # Healthy
-        self.notice_device(host, '')
+        do_force = force_clear_publish or not self._device_notice_force_cleared.get(host)
+        self.notice_device(host, '', force_publish=do_force)
+        if do_force:
+            self._device_notice_force_cleared[host] = True
 
     def _load_config_doc(self):
         cfg = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'CONFIG.md')
@@ -626,7 +667,12 @@ class Controller(Node):
                 self._update_counts()
             device = self.devices.get(host)
             if device is not None:
-                self._refresh_device_notice(host, device)
+                # On reconnect, force a notices publish so PG3 drops a stale
+                # "Connection lost" even if Custom.load raced the clear.
+                online_event = key == '_online' and bool(event.get('online'))
+                self._refresh_device_notice(
+                    host, device, force_clear_publish=online_event
+                )
             # After SSE rediscovery, refresh IoX drivers (node may have been
             # added with Unknown defaults before the entity burst finished).
             # Run off the SSE/timer thread so REST does not stall event reads.

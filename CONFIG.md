@@ -50,7 +50,7 @@ PG3 Notices are set for problems and **cleared when the condition goes away**:
 | No devices configured | `hosts` empty | Devices discovered or `hosts` set |
 | mDNS / Discover errors | zeroconf missing, browse failure, or no GDOs found | Discover succeeds |
 | Unsupported Konnected device | mDNS finds alarm panel / non-GDO project | Device no longer seen on Discover |
-| Per-device (`IP: …`) | Offline, connect failure, no cover entity, command failure | Device healthy again / command succeeds |
+| Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, command failure (brief SSE drops do not Notice) | Device healthy again / command succeeds |
 | MQTT (`mqtt`) | Client `.cert` fails CA verify, or PG3 MQTT keeps disconnecting | MQTT stable ~45s with a valid client cert |
 
 Unsupported Konnected products (for example alarm panels) are **not** added as IoX nodes; they only appear as Notices so you know why they were ignored.
