@@ -6,7 +6,7 @@ Local control of [Konnected](https://konnected.io) garage door openers from IoX 
 
 | Device | Status | Notes |
 |--------|--------|-------|
-| **GDO blaQ** (GDOv2-Q) | Supported (v0.1.0) | Security+ wireline — door, light, lock, motion, obstruction, synced |
+| **GDO blaQ** (GDOv2-Q) | Supported (v1.0.0) | Security+ wireline — door, light, lock, motion, obstruction, synced |
 | **GDO White** (GDOv2-S / GDOv1-S) | Planned | Dry-contact + sensors; cover open/close may already work if discovered |
 
 Point the device at your LAN (Wi-Fi) and note its IP address (Konnected app or router DHCP list). Hostname such as `konnected-xxxxxx.local` may work if mDNS resolves on your Polyglot host.

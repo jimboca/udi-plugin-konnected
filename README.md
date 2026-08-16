@@ -8,7 +8,7 @@ Uses each device’s local **REST + SSE** API (ESPHome web server). No MQTT firm
 
 | Version | Hardware |
 |---------|----------|
-| **0.1.0** | **GDO blaQ** — door, light, lock, motion, obstruction, synced / re-sync |
+| **1.0.0** | **GDO blaQ** — door, light, lock, motion, obstruction, synced / re-sync |
 | Later | **GDO White** — dry-contact opener; architecture already classifies White devices |
 
 ## Quick start
