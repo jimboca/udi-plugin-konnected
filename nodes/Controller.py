@@ -30,6 +30,7 @@ from const import (
     NS_HOST,
     PARAM_CHANGE_NODE_NAMES,
     PARAM_HOSTS,
+    SSE_IDLE_RECONNECT_SEC,
     UOM_BOOLEAN,
     UOM_RAW,
 )
@@ -202,6 +203,8 @@ class Controller(Node):
             self.heartbeat()
             self._check_connections()
         elif polltype == 'shortPoll':
+            # Detect hung SSE on shortPoll (longPoll alone can be 5+ minutes).
+            self._check_sse_health()
             # Re-assert healthy notices so a stale PG3 Notices.load echo cannot
             # leave "Connection lost — reconnecting…" up while SSE is live.
             for host, device in list(self.devices.items()):
@@ -642,7 +645,31 @@ class Controller(Node):
         self._refresh_device_notice(host, device)
         return device
 
+    def _check_sse_health(self) -> None:
+        """If Online but no SSE entity events for too long, Hung + Notice + reconnect."""
+        for host, device in list(self.devices.items()):
+            if not device.online or not device.sse_idle_too_long(SSE_IDLE_RECONNECT_SEC):
+                continue
+            idle = device.seconds_since_sse_event
+            idle_s = f'{idle:.0f}s' if idle is not None else 'since connect'
+            LOGGER.warning(
+                'Hung SSE on %s (no entity events for %s, threshold %ss) — '
+                'forcing reconnect',
+                host,
+                idle_s,
+                int(SSE_IDLE_RECONNECT_SEC),
+            )
+            gdo = self.gdo_nodes.get(host)
+            if gdo:
+                gdo.mark_stream_hung()
+            self.notice_device(
+                host,
+                f'SSE stream hung (no events for {idle_s}) — reconnecting…',
+            )
+            device.force_sse_reconnect()
+
     def _check_connections(self):
+        self._check_sse_health()
         for host, device in list(self.devices.items()):
             if not device.online:
                 LOGGER.info('Device %s offline — leaving SSE reconnect to client thread', host)
@@ -673,24 +700,9 @@ class Controller(Node):
                 self._refresh_device_notice(
                     host, device, force_clear_publish=online_event
                 )
-            # After SSE rediscovery, refresh IoX drivers (node may have been
-            # added with Unknown defaults before the entity burst finished).
-            # Run off the SSE/timer thread so REST does not stall event reads.
-            if key == '_ready':
-                gdo = self.gdo_nodes.get(host)
-                light = self.light_nodes.get(host)
-                if gdo or light:
-                    def _refresh():
-                        if gdo:
-                            gdo.query()
-                        if light:
-                            light.query()
-
-                    threading.Thread(
-                        target=_refresh,
-                        name=f'konnected-ready-{host}',
-                        daemon=True,
-                    ).start()
+            # `_ready` no longer REST-queries: the SSE burst is applied before
+            # this callback, and concurrent REST was starving live door events.
+            # Node start() / Query still REST-refresh when needed.
 
     # ── discover / nodes ───────────────────────────────────────────────────
 

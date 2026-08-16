@@ -33,6 +33,11 @@ IX_DEVTYPE_UNKNOWN = 0
 IX_DEVTYPE_BLAQ = 1
 IX_DEVTYPE_WHITE = 2
 
+# Event Stream (GV6) — short-term SSE health for debugging hung streams
+IX_STREAM_OK = 0       # receiving entity events
+IX_STREAM_HUNG = 1     # Online but no SSE events for SSE_IDLE_RECONNECT_SEC
+IX_STREAM_OFFLINE = 2  # no live SSE connection
+
 # Online / on-off
 ISY_FALSE = 0
 ISY_TRUE = 1
@@ -64,6 +69,9 @@ OFFLINE_STALE_SHORTPOLLS = 2
 # Notice. Brief resets (common on blaQ) reconnect in ~5s; without a grace
 # window the Notice flaps and a PG3 Notices.load echo can leave it stuck.
 NOTICE_OFFLINE_GRACE_SEC = 30.0
+# If Online but no SSE entity event for this long, close the stream so the
+# client reconnects (covers hung iter_lines after REST/rediscovery).
+SSE_IDLE_RECONNECT_SEC = 120.0
 
 # Notice keys
 NOTICE_HOSTS = 'hosts'

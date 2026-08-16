@@ -22,7 +22,11 @@ def enabled() -> bool:
 
 
 def log(host: str, direction: str, detail: Any) -> None:
-    """Log one device message when Debug + Stream is active."""
+    """Log one device message when Debug + Stream is active.
+
+    Uses INFO so lines appear under Debug + Stream even when PG3's logger
+    level name mapping is quirky for custom levels.
+    """
     if not _enabled:
         return
-    LOGGER.debug('%s %s %s', host, direction, detail)
+    LOGGER.info('%s %s %s', host, direction, detail)

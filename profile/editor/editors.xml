@@ -23,6 +23,9 @@
   <editor id="devtype">
     <range uom="25" subset="0-2" nls="IX_DEV" />
   </editor>
+  <editor id="stream">
+    <range uom="25" subset="0-2" nls="IX_STREAM" />
+  </editor>
   <editor id="lightst">
     <range uom="78" subset="0,100,101" />
   </editor>

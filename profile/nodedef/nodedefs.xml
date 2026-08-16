@@ -28,6 +28,7 @@
       <st id="GV3" editor="motion" />
       <st id="GV4" editor="synced" />
       <st id="GV5" editor="devtype" />
+      <st id="GV6" editor="stream" />
     </sts>
     <cmds>
       <sends>

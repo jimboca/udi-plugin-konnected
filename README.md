@@ -19,7 +19,7 @@ Uses each device’s local **REST + SSE** API (ESPHome web server). No MQTT firm
 
 Full setup, statuses, and troubleshooting: **[CONFIG.md](CONFIG.md)**.
 
-To capture live device traffic while debugging, set PG3 **Logger Level** to **Debug + Stream** (see CONFIG) and watch `logs/debug.log` for `SSE recv` / `REST` lines.
+To capture live device traffic while debugging, set PG3 **Logger Level** to **Debug + Stream** (see CONFIG) and watch `logs/debug.log` for `SSE recv` / `REST` lines. Each door also has an **Event Stream** status (OK / Hung / Offline) for hung-SSE diagnosis.
 
 If the Node Server never Discovers after an eISY/UDX update, check PG3 **Notices** for an **mqtt** entry and `logs/debug.log` for `MQTT health FAILED` — that is a Polyglot TLS/cert problem, not the garage opener.
 

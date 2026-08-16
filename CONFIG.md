@@ -35,7 +35,7 @@ On the Node Server **Configuration** page, **Logger Level** controls how much go
 
 | Level | Use |
 |-------|-----|
-| **Debug + Stream** | Full plugin debug **plus** every SSE event and REST GET/POST from each GDO (noisy; for diagnosing open/close / Online / Door State) |
+| **Debug + Stream** | Full plugin debug **plus** every SSE event and REST GET/POST from each GDO as **INFO** lines (`SSE recv` / `REST …`; noisy; for diagnosing open/close / Online / Door State) |
 | Debug / Info | Normal plugin diagnostics without the per-event device dump |
 | Warning / Error | Routine operation |
 
@@ -50,7 +50,7 @@ PG3 Notices are set for problems and **cleared when the condition goes away**:
 | No devices configured | `hosts` empty | Devices discovered or `hosts` set |
 | mDNS / Discover errors | zeroconf missing, browse failure, or no GDOs found | Discover succeeds |
 | Unsupported Konnected device | mDNS finds alarm panel / non-GDO project | Device no longer seen on Discover |
-| Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, command failure (brief SSE drops do not Notice) | Device healthy again / command succeeds |
+| Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, command failure, or **SSE hung** (Online but no events ~120s) | Device healthy again / stream receiving again (**Event Stream** = OK) |
 | MQTT (`mqtt`) | Client `.cert` fails CA verify, or PG3 MQTT keeps disconnecting | MQTT stable ~45s with a valid client cert |
 
 Unsupported Konnected products (for example alarm panels) are **not** added as IoX nodes; they only appear as Notices so you know why they were ignored.
@@ -61,6 +61,7 @@ Unsupported Konnected products (for example alarm panels) are **not** added as I
 |--------|---------|
 | **Door State** | Closed / Open / Stopped / Closing / Opening / Unknown |
 | **Online** | Plugin has a live SSE connection to the device. On a brief drop, Door State and sensors keep their last known values. After **2 consecutive shortPolls** while still offline, those values become Unknown (so timing follows the Node Server **shortPoll** setting; default 30s → about 60s). |
+| **Event Stream** | **OK** = receiving SSE entity events; **Hung** = Online but no events for ~120s (plugin Notices and force-reconnects — use this while debugging missed open/close); **Offline** = no SSE link |
 | **Obstruction** | Safety beam clear / obstructed |
 | **Lockout** | Wireless remotes unlocked / locked (blaQ) |
 | **Motion** | Clear / Detected (clears after ~60s if the device does not send Off) |
@@ -87,7 +88,7 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 
 | Symptom | What to check |
 |---------|----------------|
-| Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + Stream**, open/close the door, check `logs/debug.log` for `SSE recv` on the door entity. No SSE lines ⇒ LAN/SSE issue; SSE present but no ST change ⇒ plugin mapping. Restart the Node Server after updating plugin code. |
+| Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + Stream**, open/close the door, check `logs/debug.log` for `SSE recv` on the door entity. No SSE lines for >2 minutes while Online ⇒ plugin will force-reconnect; if still dead, restart the Node Server. |
 | Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD). Avoid `pip install --upgrade zeroconf` on FreeBSD — it builds from source; `install.sh` prefers the OS package. |
 | Notice about `hosts` | Click Discover, or set the parameter and save |
 | Device offline after discover | Ping the IP from the Polyglot host; ensure HTTP port 80 is open; reboot the Konnected |

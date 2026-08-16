@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Garage door **Event Stream** status (OK / Hung / Offline) for debugging SSE
+  that stays Online while events stop. Hung is set when no entity events arrive
+  for ~120s (checked on shortPoll); the plugin Notices and force-reconnects.
+
+### Fixed
+
+- Production SSE could stay Online after rediscovery while live door events
+  stopped: `_ready` REST-queried before applying the SSE burst (racing the
+  stream). Pending burst is applied first; `_ready` no longer REST-queries.
+  **Debug + Stream** logs SSE/REST at INFO so `SSE recv` lines always show when
+  enabled.
+
 ## [1.0.0] - 2026-08-15
 
 ### Changed

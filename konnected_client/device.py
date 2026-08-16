@@ -63,6 +63,10 @@ class KonnectedDevice:
         self._sse = requests.Session()
         self._last_error: Optional[str] = None
         self._pending: Dict[str, dict] = {}
+        self._last_event_at = 0.0
+        self._connected_at = 0.0
+        self._hung_stream_count = 0
+        self._reconnect_kick_pending = False
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 
@@ -82,6 +86,63 @@ class KonnectedDevice:
     @property
     def last_error(self) -> Optional[str]:
         return self._last_error
+
+    @property
+    def seconds_since_sse_event(self) -> Optional[float]:
+        """Seconds since last SSE entity event, or None if none yet this connection."""
+        if not self._last_event_at:
+            return None
+        return time.time() - self._last_event_at
+
+    @property
+    def hung_stream_count(self) -> int:
+        """How many times an idle/hung SSE was force-reconnected this process."""
+        return self._hung_stream_count
+
+    def sse_idle_too_long(self, max_idle_sec: float) -> bool:
+        """True when Online but no entity event for max_idle_sec (hung stream)."""
+        if not self._online or max_idle_sec <= 0:
+            return False
+        if self._reconnect_kick_pending:
+            return False
+        # Allow initial burst + settle before treating silence as hung.
+        if self._connected_at and time.time() - self._connected_at < max_idle_sec:
+            return False
+        idle = self.seconds_since_sse_event
+        if idle is None:
+            # Connected long enough but never got an entity event.
+            return True
+        return idle >= max_idle_sec
+
+    def force_sse_reconnect(self) -> None:
+        """Close the SSE session so `_sse_loop` drops and reconnects."""
+        if self._reconnect_kick_pending:
+            return
+        self._reconnect_kick_pending = True
+        self._hung_stream_count += 1
+        LOGGER.warning(
+            'SSE HUNG STREAM on %s — no entity events; forcing reconnect '
+            '(occurrence #%d this run)',
+            self.host,
+            self._hung_stream_count,
+        )
+        stream_debug.log(
+            self.host,
+            'SSE hung',
+            {
+                'idle_sec': self.seconds_since_sse_event,
+                'connected_sec': (
+                    time.time() - self._connected_at if self._connected_at else None
+                ),
+                'occurrence': self._hung_stream_count,
+            },
+        )
+        try:
+            self._sse.close()
+        except Exception:
+            LOGGER.debug('SSE close during force reconnect failed', exc_info=True)
+        # Fresh session for the next connect attempt
+        self._sse = requests.Session()
 
     @property
     def has_light(self) -> bool:
@@ -270,6 +331,8 @@ class KonnectedDevice:
             resp.raise_for_status()
             self._online = True
             self._last_error = None  # clear transient disconnect errors
+            self._connected_at = time.time()
+            self._last_event_at = 0.0
             if self._state_callback:
                 try:
                     self._state_callback('_online', {'online': True})
@@ -334,6 +397,7 @@ class KonnectedDevice:
                     with self._lock:
                         self._entity_paths[entity_id] = rest_path
 
+                    self._last_event_at = time.time()
                     stream_debug.log(self.host, 'SSE recv', event)
 
                     if burst_done['value']:
@@ -365,11 +429,12 @@ class KonnectedDevice:
             ids = list(self._entity_paths.keys())
             self._device_type = classify_device(ids)
             self._semantic = semantic_entity_map(ids)
-        if self._state_callback:
-            try:
-                self._state_callback('_ready', {})
-            except Exception:
-                LOGGER.exception('ready callback failed')
+        # Apply the initial SSE burst BEFORE `_ready` so controllers do not
+        # REST-query on an empty driver set (and race the live stream).
+        pending = self._pending
+        self._pending = {}
+        for entity_id, event in pending.items():
+            self._dispatch(entity_id, event)
         LOGGER.info(
             'Discovered %d entities on %s (%s): %s',
             len(ids),
@@ -377,10 +442,11 @@ class KonnectedDevice:
             self._device_type.value,
             ', '.join(sorted(self._semantic.keys())),
         )
-        pending = self._pending
-        self._pending = {}
-        for entity_id, event in pending.items():
-            self._dispatch(entity_id, event)
+        if self._state_callback:
+            try:
+                self._state_callback('_ready', {})
+            except Exception:
+                LOGGER.exception('ready callback failed')
 
     def _dispatch(self, entity_id: str, event: dict) -> None:
         if not self._state_callback:
