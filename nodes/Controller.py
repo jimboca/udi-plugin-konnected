@@ -163,6 +163,7 @@ class Controller(Node):
 
     def handler_start(self):
         LOGGER.info('Konnected controller starting')
+        stream_debug.quiet_library_loggers(logging.WARNING)
         # Drop controller ADDNODEDONE so the first GDO wait is not a false match.
         self.n_queue.clear()
         self.setDriver('ST', ISY_TRUE, uom=UOM_BOOLEAN, force=True, report=True)
@@ -274,6 +275,8 @@ class Controller(Node):
             LOG_HANDLER.set_basic_config(True, logging.DEBUG)
         else:
             LOG_HANDLER.set_basic_config(True, logging.WARNING)
+        # aioesphomeapi DEBUG dumps every SensorStateResponse as multi-line noise.
+        stream_debug.quiet_library_loggers(logging.WARNING)
         stream_debug.set_enabled(name == 'DEBUG_STREAM' or lvl == 9)
 
     def handler_addnode_done(self, data):

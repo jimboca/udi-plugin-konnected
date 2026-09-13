@@ -35,7 +35,7 @@ On the Node Server **Configuration** page, **Logger Level** controls how much go
 
 | Level | Use |
 |-------|-----|
-| **Debug + API Stream** | Full plugin debug **plus** each native API entity state update as **INFO** (`API state …`; noisy; for diagnosing open/close / Online) |
+| **Debug + API Stream** | Full plugin debug **plus** each native API entity state as a short **INFO** line (`API state door OPEN …`). Third-party `aioesphomeapi` packet DEBUG is kept off (too noisy). |
 | Debug / Info | Normal plugin diagnostics without the per-event dump |
 | Warning / Error | Routine operation |
 
