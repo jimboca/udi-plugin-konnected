@@ -51,7 +51,7 @@ PG3 Notices are set for problems and **cleared when the condition goes away**:
 | mDNS / Discover errors | zeroconf missing, browse failure, or no GDOs found | Discover succeeds |
 | Unsupported Konnected device | mDNS finds alarm panel / non-GDO project | Device no longer seen on Discover |
 | Per-device (`IP: …`) | Offline for **≥30s**, connect failure, no cover entity, or command failure | Device healthy again |
-| MQTT (`mqtt`) | Client `.cert` fails CA verify, or PG3 MQTT keeps disconnecting | MQTT stable ~45s with a valid client cert |
+| MQTT (`mqtt`) | PG3 MQTT keeps disconnecting | MQTT stable for ~45s |
 
 Unsupported Konnected products (for example alarm panels) are **not** added as IoX nodes; they only appear as Notices so you know why they were ignored.
 
@@ -94,7 +94,7 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 | Door commands fail, **Synced** = Not Synced | Run **Re-sync** on the garage node; complete initial blaQ pairing if new |
 | Nodes missing after upgrade | Discover again (addresses are stable per host) |
 | Install fails on `aioesphomeapi` | FreeBSD: `install.sh` sets `SKIP_CYTHON=1`. Ensure `py311-cryptography` is installed (`pkg install py311-cryptography`). |
-| NS offline / Discover never runs / “device” looks dead after eISY reboot or UDX update | Usually **PG3 MQTT**, not the GDO. Check Notices for an **mqtt** message and `logs/debug.log` for `MQTT health FAILED`. Client `.cert`/`.key` must verify against `/usr/local/etc/ssl/certs/ud.ca.cert`. Reinstall this Node Server (or regenerate certs) then restart. Ping the GDO IP to confirm the door itself is fine. |
+| NS offline / Discover never runs / “device” looks dead after eISY reboot | The Node Server must be connected to PG3. Check Notices for an **mqtt** message if the link keeps dropping, and `logs/debug.log` for `PG3 MQTT disconnected`. Ping the GDO IP to confirm the door itself is fine. |
 | White device shows Unknown type | Expected for early builds — cover control may still work; White sensors come later |
 
 ## Network notes

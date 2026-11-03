@@ -35,11 +35,6 @@ from const import (
 )
 from konnected_client import DeviceType, KonnectedDevice, browse_konnected_devices
 from konnected_client import stream_debug
-from konnected_client.mqtt_health import (
-    NOTICE_MQTT_CERT,
-    NOTICE_MQTT_FLAPPING,
-    check_mqtt_client_cert,
-)
 from nodes.GarageDoor import GarageDoor
 from nodes.Light import Light
 
@@ -48,6 +43,11 @@ _MQTT_WATCH_INTERVAL_SEC = 2.0
 _MQTT_FLAP_NOTICE_AFTER = 2  # disconnects before flapping notice
 _MQTT_STABLE_CLEAR_SEC = 45.0  # clear mqtt notice after this much healthy time
 _MQTT_DOWN_LOG_EVERY_SEC = 30.0
+NOTICE_MQTT_FLAPPING = (
+    'PG3 MQTT connection is unstable (repeated disconnects). Device Discover and '
+    'status updates cannot run while MQTT is down. This is not a Konnected '
+    'device LAN failure.'
+)
 
 
 def _normalize_host(raw: str) -> str:
@@ -134,7 +134,6 @@ class Controller(Node):
         self._stopping = False
         self._mqtt_watch_thread: Optional[threading.Thread] = None
         self._mqtt_notice_active = False
-        self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
         # host → time.time() when API first went offline (for notice grace).
         self._device_offline_since: Dict[str, float] = {}
         # host → True after we force-published a clear following reconnect.
@@ -340,10 +339,6 @@ class Controller(Node):
             )
         else:
             self._notice_clear(NOTICE_HOSTS)
-        # Refresh MQTT cert status; set notice only while MQTT can publish.
-        self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
-        if not self._mqtt_cert_ok and self.poly.isConnected():
-            self._publish_mqtt_notice(NOTICE_MQTT_CERT)
 
     def _start_mqtt_watchdog(self) -> None:
         if self._mqtt_watch_thread is not None and self._mqtt_watch_thread.is_alive():
@@ -380,8 +375,8 @@ class Controller(Node):
         """Watch PG3 MQTT; log clearly and surface Notices on brief reconnects.
 
         Notices require MQTT, so while the link is down we can only log. On each
-        reconnect we publish a notice if the client cert is bad or the link has
-        been flapping — otherwise Discover/device failures look like GDO issues.
+        reconnect we publish a notice if the link has been flapping — otherwise
+        Discover/device failures look like GDO issues.
         """
         was_connected = False
         disconnect_count = 0
@@ -402,14 +397,7 @@ class Controller(Node):
                 )
                 up_since = now
                 down_since = None
-                self._mqtt_cert_ok, self._mqtt_cert_detail = check_mqtt_client_cert()
-                if not self._mqtt_cert_ok:
-                    LOGGER.error(
-                        'MQTT health FAILED (PG3 link, not a Konnected GDO issue): %s',
-                        self._mqtt_cert_detail,
-                    )
-                    self._publish_mqtt_notice(NOTICE_MQTT_CERT)
-                elif disconnect_count >= _MQTT_FLAP_NOTICE_AFTER:
+                if disconnect_count >= _MQTT_FLAP_NOTICE_AFTER:
                     LOGGER.error(
                         'PG3 MQTT was flapping (%d disconnects). This is an MQTT '
                         'issue between the Node Server and Polyglot — not a '
@@ -424,12 +412,9 @@ class Controller(Node):
                 up_since = None
                 LOGGER.error(
                     'PG3 MQTT disconnected (count=%d). Discover/device updates '
-                    'pause until MQTT is stable. This is usually a TLS/cert or '
-                    'broker problem — not the Konnected GDO itself. %s',
+                    'pause until MQTT is stable. This is a Polyglot link problem, '
+                    'not the Konnected GDO itself.',
                     disconnect_count,
-                    self._mqtt_cert_detail
-                    if not self._mqtt_cert_ok
-                    else 'Re-check .cert/.key against ud.ca.cert after UDX updates.',
                 )
             elif not connected:
                 if down_since is None:
@@ -438,17 +423,13 @@ class Controller(Node):
                     last_down_log = now
                     LOGGER.error(
                         'PG3 MQTT still down for %.0fs — cannot reach Polyglot '
-                        '(notices/Discover blocked). Not a Konnected device issue. %s',
+                        '(notices/Discover blocked). Not a Konnected device issue.',
                         now - down_since,
-                        self._mqtt_cert_detail
-                        if not self._mqtt_cert_ok
-                        else '',
                     )
             else:
                 # Connected and was connected — clear notice after stable period
                 if (
                     self._mqtt_notice_active
-                    and self._mqtt_cert_ok
                     and up_since is not None
                     and now - up_since >= _MQTT_STABLE_CLEAR_SEC
                     and self._started

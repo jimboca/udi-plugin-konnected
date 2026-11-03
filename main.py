@@ -10,7 +10,6 @@ from pathlib import Path
 import markdown2
 from udi_interface import Interface, LOGGER
 
-from konnected_client.mqtt_health import log_mqtt_health
 from nodes import VERSION, Controller, GarageDoor, Light
 
 PLUGIN_DIR = Path(__file__).resolve().parent
@@ -33,9 +32,6 @@ def load_config_doc(polyglot):
 
 if __name__ == '__main__':
     try:
-        # Diagnose MQTT certs before Interface connects — failures look like
-        # "device offline" but are PG3 MQTT/TLS, not Konnected LAN issues.
-        log_mqtt_health(LOGGER, PLUGIN_DIR)
         polyglot = Interface([Controller, GarageDoor, Light])
         polyglot.start(VERSION)
         load_config_doc(polyglot)

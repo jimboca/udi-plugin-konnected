@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-03
+
+### Removed
+
+- Startup and runtime checks of the PG3 MQTT client `.cert` / `.key` files.
+  Polyglot owns those credentials; this Node Server does not use them for the
+  Konnected native API. The **mqtt** notice still reports a flapping PG3 link.
+
 ## [2.0.1] - 2026-09-13
 
 ### Fixed
