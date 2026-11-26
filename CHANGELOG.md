@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-11-26
+
+### Fixed
+
+- Install on eisy after the Python 3.12 upgrade. `aioesphomeapi` 46.29 and
+  later require `cryptography` 50, which has no FreeBSD wheel and fails in
+  `install.sh` (`Unsupported platform: 312`). The plugin now stays on
+  `aioesphomeapi` below 46.29 and the OS package `py312-cryptography` 48.x.
+
 ## [2.0.2] - 2026-11-03
 
 ### Removed

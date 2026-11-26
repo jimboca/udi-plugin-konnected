@@ -25,7 +25,7 @@ To capture live device traffic while debugging, set PG3 **Logger Level** to **De
 
 - PG3 / PG3x with Python 3
 - Konnected GDO reachable on the LAN (native API **6053**); multicast DNS for auto-discover
-- Dependencies: `udi_interface`, `aioesphomeapi`, `zeroconf`, `markdown2` (see `requirements.txt`). On FreeBSD install **`pkg install py311-zeroconf py311-cryptography`** first — `install.sh` uses OS zeroconf and installs `aioesphomeapi` with `SKIP_CYTHON=1`.
+- Dependencies: `udi_interface`, `aioesphomeapi` (below 46.29), `zeroconf`, `markdown2` (see `requirements.txt`). On current eisy (Python 3.12) install **`pkg install py312-cryptography`** first. `install.sh` uses that OS package and does not build `cryptography` 50 (no FreeBSD wheel). `aioesphomeapi` is installed with `SKIP_CYTHON=1`.
 
 ## Development
 

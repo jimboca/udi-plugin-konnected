@@ -1,7 +1,11 @@
 udi_interface >= 3.3.14
 markdown2
 # aioesphomeapi 45+ needs zeroconf>=0.150 (FreeBSD py311-zeroconf 0.132 is too old).
-zeroconf >= 0.150.0, < 2.0
+zeroconf >= 0.152.0, < 2.0
 # Home Assistant's ESPHome native API client (TCP :6053). Prefer pure-Python
 # build on FreeBSD (see install.sh SKIP_CYTHON=1).
-aioesphomeapi >= 45.0.0
+# 46.29+ requires cryptography>=50. eisy ships py312-cryptography 48.x and
+# cryptography 50 has no FreeBSD wheel (maturin: "Unsupported platform: 312").
+aioesphomeapi >= 45.0.0, < 46.29.0
+# Keep the OS package. Do not let pip build a newer cryptography from source.
+cryptography >= 48.0.0, < 49

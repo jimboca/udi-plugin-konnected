@@ -88,12 +88,12 @@ When present (typical blaQ), a child light node supports On / Off. External ligh
 | Symptom | What to check |
 |---------|----------------|
 | Door State stuck / open-close not seen in IoX | Set Logger Level to **Debug + API Stream**, open/close the door, check `logs/debug.log` for `API state` with `sem=door`. Confirm **Online** is on. Restart the Node Server if the API stays offline. |
-| Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually; confirm `zeroconf` is installed (`pkg install py311-zeroconf` on FreeBSD). Avoid `pip install --upgrade zeroconf` on FreeBSD — it builds from source; `install.sh` prefers the OS package. |
+| Discover finds nothing | mDNS/multicast must reach the Polyglot host; try setting `hosts` to the IP manually. `install.sh` pip-installs `zeroconf` 0.152+ because the FreeBSD `py311-zeroconf` package (0.132) is too old. |
 | Notice about `hosts` | Click Discover, or set the parameter and save |
 | Device offline after discover | Ping the IP from the Polyglot host; ensure TCP **6053** is open (native API); reboot the Konnected |
 | Door commands fail, **Synced** = Not Synced | Run **Re-sync** on the garage node; complete initial blaQ pairing if new |
 | Nodes missing after upgrade | Discover again (addresses are stable per host) |
-| Install fails on `aioesphomeapi` | FreeBSD: `install.sh` sets `SKIP_CYTHON=1`. Ensure `py311-cryptography` is installed (`pkg install py311-cryptography`). |
+| Install fails on `aioesphomeapi` or `cryptography` | Current eisy is Python 3.12 with **`py312-cryptography` 48.x**. `aioesphomeapi` 46.29+ requires cryptography 50, which pip cannot build here (`Unsupported platform: 312`). This plugin pins `aioesphomeapi` below 46.29. If cryptography itself is missing: `pkg install py312-cryptography` (or `py311-cryptography` on an older image). |
 | NS offline / Discover never runs / “device” looks dead after eISY reboot | The Node Server must be connected to PG3. Check Notices for an **mqtt** message if the link keeps dropping, and `logs/debug.log` for `PG3 MQTT disconnected`. Ping the GDO IP to confirm the door itself is fine. |
 | White device shows Unknown type | Expected for early builds — cover control may still work; White sensors come later |
 
